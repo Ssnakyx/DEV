@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Lobby</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <main>
+    <h1 id="gameTypeTitle">Game Lobby</h1>
+    
+    <div class="lobby-container">
+      <div id="statusMessage" class="status">Connecting to server...</div>
+      
+      <div class="game-code-container">
+        <h2>Room Code:</h2>
+        <div id="gameCode" class="game-code">------</div>
+      </div>
+      
+      <div class="players-container">
+        <h2>Players:</h2>
+        <ul id="playerList" class="player-list">
+          <li>Waiting for players...</li>
+        </ul>
+      </div>
+      
+      <button id="backButton" onclick="goBack()">Back to Menu</button>
+    </div>
+  </main>
+  <script src="js/lobby.js"></script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Toe</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    /* Additional styles for turn indicators */
+    .player-indicator {
+      display: inline-block;
+      padding: 8px 15px;
+      margin: 0 10px;
+      border-radius: 20px;
+      background-color: #333;
+      transition: all 0.3s ease;
+    }
+    
+    .player-indicator.active {
+      background-color: #00c853;
+      box-shadow: 0 0 10px rgba(0, 200, 83, 0.5);
+      transform: scale(1.05);
+    }
+    
+    .turn-indicators {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    
+    .status.your-turn {
+      color: #00c853;
+      font-weight: bold;
+    }
+    
+    .status.waiting {
+      color: #ff9100;
+    }
+    
+    .status.game-win {
+      color: #00c853;
+      font-size: 1.8rem;
+      font-weight: bold;
+    }
+    
+    .status.game-lose {
+      color: #f44336;
+      font-size: 1.8rem;
+    }
+    
+    .status.game-draw {
+      color: #ff9100;
+      font-size: 1.8rem;
+    }
+    
+    .cell.new-move {
+      animation: highlight 0.5s ease-in-out;
+    }
+    
+    .flash {
+      animation: flash 0.5s ease-in-out;
+    }
+    
+    @keyframes highlight {
+      0% { transform: scale(0.8); background-color: #444; }
+      50% { transform: scale(1.1); background-color: #555; }
+      100% { transform: scale(1); background-color: #333; }
+    }
+    
+    @keyframes flash {
+      0% { background-color: #333; }
+      50% { background-color: #f44336; }
+      100% { background-color: #333; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Tic Tac Toe</h1>
+    <div id="statusMessage" class="status">Connecting to game...</div>
+    
+    <div class="turn-indicators">
+      <div id="playerXIndicator" class="player-indicator active">Player X</div>
+      <div id="playerOIndicator" class="player-indicator">Player O</div>
+    </div>
+    
+    <div class="board" id="board"></div>
+    
+    <div class="score-board">
+      <div class="score-card">
+        <h3>Player X</h3>
+        <p id="scoreX">0</p>
+      </div>
+      <div class="score-card">
+        <h3>Draws</h3>
+        <p id="scoreDraw">0</p>
+      </div>
+      <div class="score-card">
+        <h3>Player O</h3>
+        <p id="scoreO">0</p>
+      </div>
+    </div>
+    
+    <button id="restartGame">New Game</button>
+    <button id="backButton" onclick="goBack()">Back to Lobby</button>
+  </main>
+  <script src="js/game.js"></script>
+</body>
+</html>

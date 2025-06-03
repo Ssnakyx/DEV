@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rock Paper Scissors</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    /* Additional styles for RPS game */
+    .rps-container {
+      margin: 20px auto;
+      max-width: 600px;
+    }
+    
+    .choices {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin: 30px 0;
+      flex-wrap: wrap;
+    }
+    
+    .choice {
+      width: 100px;
+      height: 100px;
+      background-color: #333;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.3s, box-shadow 0.3s, background-color 0.3s;
+      font-size: 2.5rem;
+      border: 3px solid transparent;
+    }
+    
+    .choice:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 15px rgba(0, 200, 83, 0.5);
+      background-color: #444;
+    }
+    
+    .choice.selected {
+      background-color: #00c853;
+      border-color: #00e676;
+      transform: scale(1.1);
+      box-shadow: 0 0 20px rgba(0, 200, 83, 0.7);
+    }
+    
+    .choice.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .choice.disabled:hover {
+      transform: none;
+      box-shadow: none;
+      background-color: #333;
+    }
+    
+    .result-display {
+      margin: 30px 0;
+      padding: 25px;
+      background-color: #1e1e1e;
+      border-radius: 12px;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    .result-choices {
+      display: flex;
+      justify-content: space-around;
+      margin: 15px 0;
+      flex-wrap: wrap;
+    }
+    
+    .player-choice {
+      text-align: center;
+      padding: 10px;
+    }
+    
+    .choice-emoji {
+      font-size: 3rem;
+      margin-bottom: 10px;
+    }
+    
+    .vs-text {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #ff9100;
+      align-self: center;
+      margin: 0 20px;
+    }
+    
+    .result-text {
+      font-size: 1.8rem;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 15px;
+    }
+    
+    .result-text.win {
+      color: #00c853;
+    }
+    
+    .result-text.lose {
+      color: #f44336;
+    }
+    
+    .result-text.draw {
+      color: #ff9100;
+    }
+    
+    .waiting-message {
+      margin: 20px 0;
+      font-style: italic;
+      opacity: 0.7;
+      text-align: center;
+      font-size: 1.2rem;
+    }
+    
+    .round-info {
+      text-align: center;
+      margin: 20px 0;
+      font-size: 1.3rem;
+      color: #00c853;
+    }
+    
+    .player-indicators {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    
+    .player-indicator {
+      padding: 10px 20px;
+      background-color: #333;
+      border-radius: 20px;
+      transition: all 0.3s ease;
+    }
+    
+    .player-indicator.host {
+      background-color: #ff9100;
+      color: #000;
+      font-weight: bold;
+    }
+    
+    .choice-made {
+      animation: choicePulse 0.5s ease-in-out;
+    }
+    
+    @keyframes choicePulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1.1); }
+    }
+    
+    .countdown {
+      font-size: 1.5rem;
+      color: #ff9100;
+      text-align: center;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Rock Paper Scissors</h1>
+    <div id="statusMessage" class="status">Connecting to game...</div>
+    
+    <div class="player-indicators">
+      <div id="player1Indicator" class="player-indicator host">Player 1 (Host)</div>
+      <div id="player2Indicator" class="player-indicator">Player 2</div>
+    </div>
+    
+    <div class="rps-container">
+      <div class="round-info">
+        <span id="roundNumber">Round 1</span>
+      </div>
+      
+      <div class="choices" id="choicesContainer">
+        <div class="choice" data-choice="rock" title="Rock">🪨</div>
+        <div class="choice" data-choice="paper" title="Paper">📄</div>
+        <div class="choice" data-choice="scissors" title="Scissors">✂️</div>
+      </div>
+      
+      <div id="waitingMessage" class="waiting-message" style="display: none;">
+        Waiting for other player to make their choice...
+      </div>
+      
+      <div id="resultDisplay" class="result-display" style="display: none;">
+        <div class="result-choices">
+          <div class="player-choice">
+            <div id="player1Choice" class="choice-emoji">?</div>
+            <div id="player1Name">Player 1</div>
+          </div>
+          <div class="vs-text">VS</div>
+          <div class="player-choice">
+            <div id="player2Choice" class="choice-emoji">?</div>
+            <div id="player2Name">Player 2</div>
+          </div>
+        </div>
+        <div id="resultText" class="result-text"></div>
+      </div>
+      
+      <div class="score-board">
+        <div class="score-card">
+          <h3 id="p1ScoreLabel">Player 1</h3>
+          <p id="scoreP1">0</p>
+        </div>
+        <div class="score-card">
+          <h3>Draws</h3>
+          <p id="scoreDraw">0</p>
+        </div>
+        <div class="score-card">
+          <h3 id="p2ScoreLabel">Player 2</h3>
+          <p id="scoreP2">0</p>
+        </div>
+      </div>
+      
+      <button id="newRound" style="display: none;">Next Round</button>
+      <button id="backButton" onclick="goBack()">Back to Lobby</button>
+    </div>
+  </main>
+  <script src="js/rps.js"></script>
+</body>
+</html>

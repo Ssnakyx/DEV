@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Number Guessing Game</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .guess-container {
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #1e1e1e;
+      border-radius: 12px;
+    }
+    
+    .guess-input {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .guess-input input {
+      width: 100px;
+      text-align: center;
+      font-size: 1.2rem;
+    }
+    
+    .guess-history {
+      margin: 20px 0;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .guess-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      margin: 5px 0;
+      background-color: #333;
+      border-radius: 8px;
+    }
+    
+    .guess-item.correct {
+      background-color: #00c853;
+    }
+    
+    .guess-item.higher {
+      background-color: #ff9100;
+    }
+    
+    .guess-item.lower {
+      background-color: #2196f3;
+    }
+    
+    .guess-number {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    
+    .guess-hint {
+      font-style: italic;
+    }
+    
+    .game-info {
+      text-align: center;
+      margin: 20px 0;
+    }
+    
+    .remaining-guesses {
+      font-size: 1.2rem;
+      color: #ff9100;
+    }
+    
+    .target-range {
+      font-size: 1.1rem;
+      color: #00c853;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Number Guessing Game</h1>
+    <div id="statusMessage" class="status">Connecting to game...</div>
+    
+    <div class="guess-container">
+      <div class="game-info">
+        <div class="target-range">Guess the number between 1 and 100!</div>
+        <div id="remainingGuesses" class="remaining-guesses">10 guesses remaining</div>
+      </div>
+      
+      <div class="guess-input">
+        <input type="number" id="guessInput" min="1" max="100" placeholder="Enter your guess">
+        <button id="submitGuess">Submit Guess</button>
+      </div>
+      
+      <div class="guess-history" id="guessHistory">
+        <p>Your guesses will appear here...</p>
+      </div>
+    </div>
+    
+    <div class="score-board">
+      <div class="score-card">
+        <h3 id="player1Name">Player 1</h3>
+        <p id="scoreP1">0</p>
+      </div>
+      <div class="score-card">
+        <h3>Games</h3>
+        <p id="totalGames">0</p>
+      </div>
+      <div class="score-card">
+        <h3 id="player2Name">Player 2</h3>
+        <p id="scoreP2">0</p>
+      </div>
+    </div>
+    
+    <button id="restartGame">New Game</button>
+    <button id="backButton" onclick="goBack()">Back to Lobby</button>
+  </main>
+  <script src="js/guessnumber.js"></script>
+</body>
+</html>

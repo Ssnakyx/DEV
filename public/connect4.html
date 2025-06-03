@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connect 4</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .connect4-board {
+      display: grid;
+      grid-template-columns: repeat(7, 60px);
+      grid-template-rows: repeat(6, 60px);
+      gap: 5px;
+      margin: 20px auto;
+      background-color: #1a5490;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .connect4-cell {
+      width: 60px;
+      height: 60px;
+      background-color: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+    }
+    
+    .connect4-cell.red {
+      background-color: #f44336;
+      color: white;
+    }
+    
+    .connect4-cell.yellow {
+      background-color: #ffeb3b;
+      color: black;
+    }
+    
+    .connect4-cell:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 10px rgba(0, 200, 83, 0.5);
+    }
+    
+    .column-selector {
+      display: grid;
+      grid-template-columns: repeat(7, 60px);
+      gap: 5px;
+      margin: 10px auto;
+      justify-content: center;
+    }
+    
+    .column-btn {
+      width: 60px;
+      height: 40px;
+      background-color: #00c853;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .column-btn:hover {
+      background-color: #00e676;
+      transform: translateY(-2px);
+    }
+    
+    .column-btn:disabled {
+      background-color: #666;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .player-turn {
+      text-align: center;
+      margin: 20px 0;
+      font-size: 1.5rem;
+    }
+    
+    .turn-red {
+      color: #f44336;
+    }
+    
+    .turn-yellow {
+      color: #ffeb3b;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Connect 4</h1>
+    <div id="statusMessage" class="status">Connecting to game...</div>
+    
+    <div class="player-turn">
+      <div id="turnIndicator">Red Player's Turn</div>
+    </div>
+    
+    <div class="column-selector" id="columnSelector">
+      <button class="column-btn" data-column="0">↓</button>
+      <button class="column-btn" data-column="1">↓</button>
+      <button class="column-btn" data-column="2">↓</button>
+      <button class="column-btn" data-column="3">↓</button>
+      <button class="column-btn" data-column="4">↓</button>
+      <button class="column-btn" data-column="5">↓</button>
+      <button class="column-btn" data-column="6">↓</button>
+    </div>
+    
+    <div class="connect4-board" id="board"></div>
+    
+    <div class="score-board">
+      <div class="score-card">
+        <h3 id="redPlayerName">Red Player</h3>
+        <p id="scoreRed">0</p>
+      </div>
+      <div class="score-card">
+        <h3>Draws</h3>
+        <p id="scoreDraw">0</p>
+      </div>
+      <div class="score-card">
+        <h3 id="yellowPlayerName">Yellow Player</h3>
+        <p id="scoreYellow">0</p>
+      </div>
+    </div>
+    
+    <button id="restartGame">New Game</button>
+    <button id="backButton" onclick="goBack()">Back to Lobby</button>
+  </main>
+  <script src="js/connect4.js"></script>
+</body>
+</html>

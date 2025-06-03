@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini-Games Hub</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <main>
+    <h1>Mini-Games Hub</h1>
+    
+    <!-- Username Setup Section -->
+    <div id="usernameSection" class="username-section">
+      <h2>Welcome! Please enter your username</h2>
+      <div class="username-input">
+        <input type="text" id="usernameInput" placeholder="Enter your username" maxlength="20">
+        <button id="setUsername">Set Username</button>
+      </div>
+      <p class="username-hint">Your username will be saved and used in all games</p>
+    </div>
+
+    <!-- Main Menu Section (hidden initially) -->
+    <div id="mainMenu" class="main-menu" style="display: none;">
+      <div class="user-info">
+        <h2>Welcome back, <span id="currentUsername"></span>!</h2>
+        <button id="changeUsername" class="change-username-btn">Change Username</button>
+      </div>
+
+      <div class="menu">
+        <div class="game-card" onclick="selectGame('tictactoe')">
+          <h2>Tic Tac Toe</h2>
+          <p>Classic game of X's and O's</p>
+          <div class="game-meta">👥 2 Players • ⚡ Quick</div>
+        </div>
+        
+        <div class="game-card" onclick="selectGame('rps')">
+          <h2>Rock Paper Scissors</h2>
+          <p>Test your luck against an opponent</p>
+          <div class="game-meta">👥 2 Players • 🎲 Luck</div>
+        </div>
+        
+        <div class="game-card" onclick="selectGame('connect4')">
+          <h2>Connect 4</h2>
+          <p>Connect four pieces in a row to win</p>
+          <div class="game-meta">👥 2 Players • 🧠 Strategy</div>
+        </div>
+        
+        <div class="game-card" onclick="selectGame('guessnumber')">
+          <h2>Number Guessing</h2>
+          <p>Guess the secret number between 1-100</p>
+          <div class="game-meta">👥 2 Players • 🔢 Logic</div>
+        </div>
+        
+        <div class="game-card" onclick="selectGame('wordguess')">
+          <h2>Word Guessing</h2>
+          <p>Hangman-style word guessing game</p>
+          <div class="game-meta">👥 2 Players • 📝 Words</div>
+        </div>
+        
+        <div class="game-card" onclick="selectGame('dots')">
+          <h2>Dots & Boxes</h2>
+          <p>Draw lines to complete boxes</p>
+          <div class="game-meta">👥 2 Players • 🎯 Tactical</div>
+        </div>
+      </div>
+      
+      <div id="gameOptions" class="game-options" style="display: none;">
+        <h2 id="selectedGameTitle"></h2>
+        <div id="gameDescription" class="game-description"></div>
+        <div class="options-container">
+          <div class="option-card">
+            <h3>Create Game</h3>
+            <p>Start a new game and invite a friend</p>
+            <button id="createGame">Create Game</button>
+          </div>
+          <div class="option-card">
+            <h3>Join Game</h3>
+            <p>Enter a game code to join</p>
+            <div class="join-game">
+              <input type="text" id="gameCode" placeholder="Enter code" maxlength="6">
+              <button id="joinGame">Join</button>
+            </div>
+          </div>
+        </div>
+        <button class="back-button" onclick="backToMenu()">Back to Games</button>
+      </div>
+    </div>
+  </main>
+  <script src="js/index.js"></script>
+</body>
+</html>
