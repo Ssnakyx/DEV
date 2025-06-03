@@ -6,31 +6,17 @@ let isHost = false
 let username = ""
 let gameActive = false
 let currentTurn = "P1"
-let guessedLetters = []
-let wrongGuesses = 0
-const maxWrongGuesses = 6
-let currentWord = []
+let lines = []
+let boxes = Array(3)
+  .fill()
+  .map(() => Array(3).fill(""))
+let scores = { P1: 0, P2: 0 }
 let reconnectAttempts = 0
 const maxReconnectAttempts = 5
-const scores = {
-  P1: 0,
-  P2: 0,
-}
-
-// Hangman drawings
-const hangmanStages = [
-  "", // 0 wrong
-  "  +---+\n      |\n      |\n      |\n      |\n      |\n=========", // 1 wrong
-  "  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========", // 2 wrong
-  "  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========", // 3 wrong
-  "  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========", // 4 wrong
-  "  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========", // 5 wrong
-  "  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========", // 6 wrong (game over)
-]
 
 // Initialize the page
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("Word Guessing game page loaded")
+  console.log("Dots & Boxes game page loaded")
 
   // Get data from session storage
   gameCode = sessionStorage.getItem("gameCode")
@@ -52,24 +38,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // Update player names
   updatePlayerNames()
 
+  // Create the dots grid
+  createDotsGrid()
+
   // Connect to WebSocket server
   connectToServer()
 
   // Set up event listeners
-  document.getElementById("submitLetter").addEventListener("click", submitLetter)
   document.getElementById("restartGame").addEventListener("click", requestRestart)
-
-  // Allow Enter key to submit letter
-  document.getElementById("letterInput").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      submitLetter()
-    }
-  })
-
-  // Auto-uppercase input
-  document.getElementById("letterInput").addEventListener("input", (e) => {
-    e.target.value = e.target.value.toUpperCase()
-  })
 
   // Update restart button text based on host status
   if (isHost) {
@@ -87,6 +63,46 @@ function updatePlayerNames() {
   } else {
     document.getElementById("player1Name").textContent = "Player 1"
     document.getElementById("player2Name").textContent = `${username} (P2)`
+  }
+}
+
+// Create the dots grid
+function createDotsGrid() {
+  const grid = document.getElementById("dotsGrid")
+  grid.innerHTML = ""
+
+  // Create 4x4 grid of dots
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      const dot = document.createElement("div")
+      dot.classList.add("dot")
+      dot.dataset.row = row
+      dot.dataset.col = col
+
+      // Add click handlers for horizontal lines (except last column)
+      if (col < 3) {
+        const hLine = document.createElement("div")
+        hLine.classList.add("line-placeholder", "horizontal")
+        hLine.dataset.type = "horizontal"
+        hLine.dataset.row = row
+        hLine.dataset.col = col
+        hLine.addEventListener("click", () => handleLineClick("horizontal", row, col))
+        dot.appendChild(hLine)
+      }
+
+      // Add click handlers for vertical lines (except last row)
+      if (row < 3) {
+        const vLine = document.createElement("div")
+        vLine.classList.add("line-placeholder", "vertical")
+        vLine.dataset.type = "vertical"
+        vLine.dataset.row = row
+        vLine.dataset.col = col
+        vLine.addEventListener("click", () => handleLineClick("vertical", row, col))
+        dot.appendChild(vLine)
+      }
+
+      grid.appendChild(dot)
+    }
   }
 }
 
@@ -115,7 +131,7 @@ function connectToServer() {
     document.getElementById("statusMessage").textContent = `Welcome ${username}! You are ${playerRole}${hostText}`
 
     gameActive = true
-    updateTurnInfo()
+    updateTurnIndicator()
   }
 
   socket.onclose = (event) => {
@@ -162,11 +178,14 @@ function handleMessage(msg) {
     case "gameState":
       handleGameState(JSON.parse(msg.payload))
       break
-    case "letterGuessResult":
-      handleLetterResult(JSON.parse(msg.payload))
+    case "dotsMove":
+      handleDotsMove(JSON.parse(msg.payload))
       break
     case "restart":
       resetGame()
+      break
+    case "gameEnd":
+      handleGameEnd(JSON.parse(msg.payload))
       break
     case "playerLeft":
       handlePlayerLeft(JSON.parse(msg.payload))
@@ -187,14 +206,6 @@ function handleMessage(msg) {
 function handleError(errorMessage) {
   console.error("Server error:", errorMessage)
   document.getElementById("statusMessage").textContent = `Error: ${errorMessage}`
-
-  if (errorMessage.includes("Room") && errorMessage.includes("not found")) {
-    setTimeout(() => {
-      sessionStorage.removeItem("gameCode")
-      sessionStorage.removeItem("playerRole")
-      window.location.href = "lobby.html"
-    }, 3000)
-  }
 }
 
 // Handle player left message
@@ -211,25 +222,24 @@ function handlePlayerLeft(data) {
 function handleGameState(state) {
   console.log("Received game state:", state)
 
-  if (state.guessedWord) {
-    currentWord = state.guessedWord
-    updateWordDisplay()
+  if (state.lines) {
+    lines = state.lines
+    updateLinesDisplay()
   }
 
-  if (state.guessedLetters) {
-    guessedLetters = state.guessedLetters
-    updateLettersGrid()
+  if (state.boxes) {
+    boxes = state.boxes
+    updateBoxesDisplay()
   }
 
-  if (state.wrongGuesses !== undefined) {
-    wrongGuesses = state.wrongGuesses
-    updateWrongCount()
-    updateHangman()
+  if (state.scores) {
+    scores = state.scores
+    updateScores()
   }
 
   if (state.currentTurn) {
     currentTurn = state.currentTurn
-    updateTurnInfo()
+    updateTurnIndicator()
   }
 
   gameActive = state.gameActive
@@ -256,8 +266,8 @@ function handleRoomJoined(data) {
   )
 }
 
-// Submit a letter guess
-function submitLetter() {
+// Handle line click
+function handleLineClick(type, row, col) {
   if (!gameActive) {
     alert("Game is not active!")
     return
@@ -268,156 +278,166 @@ function submitLetter() {
     return
   }
 
-  const input = document.getElementById("letterInput")
-  const letter = input.value.trim().toUpperCase()
+  // Check if line already exists
+  const lineExists = lines.some((line) => line.type === type && line.row === row && line.col === col)
 
-  if (!letter || letter.length !== 1) {
-    alert("Please enter a single letter!")
-    input.focus()
-    return
+  if (lineExists) {
+    return // Line already drawn
   }
 
-  if (!/^[A-Z]$/.test(letter)) {
-    alert("Please enter a valid letter!")
-    input.focus()
-    return
-  }
+  console.log("Drawing line:", type, row, col)
 
-  if (guessedLetters.includes(letter)) {
-    alert("You already guessed that letter!")
-    input.focus()
-    return
-  }
-
-  console.log("Submitting letter:", letter)
-
-  // Send letter to server
+  // Send move to server
   socket.send(
     JSON.stringify({
-      type: "letterGuess",
-      payload: JSON.stringify({ letter: letter }),
+      type: "dotsMove",
+      payload: JSON.stringify({
+        type: type,
+        row: row,
+        col: col,
+      }),
     }),
   )
-
-  // Clear input
-  input.value = ""
 }
 
-// Handle letter guess result
-function handleLetterResult(result) {
-  console.log("Letter result:", result)
+// Handle dots move from server
+function handleDotsMove(move) {
+  console.log("Handling dots move:", move)
 
-  const {
-    letter,
-    found,
-    guessedWord,
-    guessedLetters: newGuessedLetters,
-    wrongGuesses: newWrongGuesses,
-    gameActive: stillActive,
-    currentTurn: newTurn,
-    word,
-  } = result
+  // Add the line
+  lines.push(move)
+  updateLinesDisplay()
 
-  // Update state
-  currentWord = guessedWord
-  guessedLetters = newGuessedLetters
-  wrongGuesses = newWrongGuesses
-  currentTurn = newTurn
-  gameActive = stillActive
+  // Check for completed boxes
+  checkCompletedBoxes()
 
-  // Update displays
-  updateWordDisplay()
-  updateLettersGrid()
-  updateWrongCount()
-  updateHangman()
-  updateTurnInfo()
-
-  // Update status message
-  const statusEl = document.getElementById("statusMessage")
-
-  if (!stillActive) {
-    // Game ended
-    const wordComplete = !currentWord.includes("_")
-
-    if (wordComplete) {
-      statusEl.textContent = `🎉 Word guessed! The word was "${word}"!`
-      statusEl.classList.add("game-win")
-      // Winner is determined by who completed the word
-      updateStats("win")
-    } else {
-      statusEl.textContent = `💀 Game over! The word was "${word}"`
-      statusEl.classList.add("game-lose")
-      updateStats("lose")
-    }
-
-    // Update total games
-    const totalGames = scores.P1 + scores.P2 + 1
-    document.getElementById("totalGames").textContent = totalGames
-  } else {
-    // Game continues
-    if (found) {
-      statusEl.textContent = `Good guess! "${letter}" is in the word.`
-    } else {
-      statusEl.textContent = `Sorry, "${letter}" is not in the word.`
-    }
-  }
+  // Update turn (server will handle this)
+  updateTurnIndicator()
 }
 
-// Update word display
-function updateWordDisplay() {
-  const wordEl = document.getElementById("wordDisplay")
-  wordEl.textContent = currentWord.join(" ")
-}
+// Update lines display
+function updateLinesDisplay() {
+  // Remove existing lines
+  document.querySelectorAll(".line").forEach((line) => line.remove())
 
-// Update letters grid
-function updateLettersGrid() {
-  const gridEl = document.getElementById("lettersGrid")
-  gridEl.innerHTML = ""
+  // Add all lines
+  lines.forEach((line) => {
+    const lineElement = document.createElement("div")
+    lineElement.classList.add("line", line.type, `player${line.player.slice(-1)}`)
 
-  guessedLetters.forEach((letter) => {
-    const tile = document.createElement("div")
-    tile.classList.add("letter-tile")
-    tile.textContent = letter
-
-    // Check if letter is in the current word
-    if (currentWord.includes(letter)) {
-      tile.classList.add("correct")
+    if (line.type === "horizontal") {
+      lineElement.style.position = "absolute"
+      lineElement.style.width = "40px"
+      lineElement.style.height = "3px"
+      lineElement.style.left = `${(line.col + 1) * 52 + 20}px`
+      lineElement.style.top = `${line.row * 52 + 26}px`
     } else {
-      tile.classList.add("wrong")
+      lineElement.style.position = "absolute"
+      lineElement.style.width = "3px"
+      lineElement.style.height = "40px"
+      lineElement.style.left = `${line.col * 52 + 26}px`
+      lineElement.style.top = `${(line.row + 1) * 52 + 20}px`
     }
 
-    gridEl.appendChild(tile)
+    document.getElementById("dotsGrid").appendChild(lineElement)
   })
 }
 
-// Update wrong count display
-function updateWrongCount() {
-  const countEl = document.getElementById("wrongCount")
-  countEl.textContent = `Wrong guesses: ${wrongGuesses}/${maxWrongGuesses}`
+// Check for completed boxes
+function checkCompletedBoxes() {
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      if (boxes[row][col] === "") {
+        // Check if all 4 sides of this box are drawn
+        const topLine = lines.find((l) => l.type === "horizontal" && l.row === row && l.col === col)
+        const bottomLine = lines.find((l) => l.type === "horizontal" && l.row === row + 1 && l.col === col)
+        const leftLine = lines.find((l) => l.type === "vertical" && l.row === row && l.col === col)
+        const rightLine = lines.find((l) => l.type === "vertical" && l.row === row && l.col === col + 1)
+
+        if (topLine && bottomLine && leftLine && rightLine) {
+          boxes[row][col] = currentTurn
+          scores[currentTurn]++
+        }
+      }
+    }
+  }
+
+  updateBoxesDisplay()
+  updateScores()
 }
 
-// Update hangman display
-function updateHangman() {
-  const hangmanEl = document.getElementById("hangmanDisplay")
-  hangmanEl.textContent = hangmanStages[wrongGuesses] || ""
+// Update boxes display
+function updateBoxesDisplay() {
+  // Remove existing boxes
+  document.querySelectorAll(".box").forEach((box) => box.remove())
+
+  // Add completed boxes
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      if (boxes[row][col] !== "") {
+        const boxElement = document.createElement("div")
+        boxElement.classList.add("box", `player${boxes[row][col].slice(-1)}`)
+        boxElement.textContent = boxes[row][col]
+
+        boxElement.style.position = "absolute"
+        boxElement.style.left = `${col * 52 + 32}px`
+        boxElement.style.top = `${row * 52 + 32}px`
+
+        document.getElementById("dotsGrid").appendChild(boxElement)
+      }
+    }
+  }
 }
 
-// Update turn info
-function updateTurnInfo() {
-  const turnEl = document.getElementById("turnInfo")
+// Update scores
+function updateScores() {
+  document.getElementById("scoreP1").textContent = scores.P1
+  document.getElementById("scoreP2").textContent = scores.P2
+}
+
+// Update turn indicator
+function updateTurnIndicator() {
+  const indicator = document.getElementById("turnIndicator")
 
   if (!gameActive) {
-    turnEl.textContent = "Game Over"
+    indicator.textContent = "Game Over!"
     return
   }
 
   if (currentTurn === playerRole) {
-    turnEl.textContent = "Your turn!"
-    turnEl.style.color = "#00c853"
+    indicator.textContent = "Your turn!"
+    indicator.className = `turn-player${playerRole.slice(-1)}`
   } else {
-    turnEl.textContent = "Opponent's turn"
-    turnEl.style.color = "#ff9100"
+    indicator.textContent = `Player ${currentTurn.slice(-1)}'s turn`
+    indicator.className = `turn-player${currentTurn.slice(-1)}`
   }
+}
+
+// Handle game end
+function handleGameEnd(result) {
+  console.log("Game ended:", result)
+  gameActive = false
+
+  const statusEl = document.getElementById("statusMessage")
+
+  if (result.winner === "draw") {
+    statusEl.textContent = "It's a tie!"
+    statusEl.classList.add("game-draw")
+    updateStats("draw")
+  } else {
+    const winnerUsername = result.winnerUsername || "Unknown"
+    if (result.winner === playerRole) {
+      statusEl.textContent = `You win, ${username}!`
+      statusEl.classList.add("game-win")
+      updateStats("win")
+    } else {
+      statusEl.textContent = `${winnerUsername} wins!`
+      statusEl.classList.add("game-lose")
+      updateStats("lose")
+    }
+  }
+
+  updateTurnIndicator()
 }
 
 // Request a game restart
@@ -438,9 +458,11 @@ function requestRestart() {
 // Reset the game
 function resetGame() {
   console.log("Resetting game")
-  currentWord = []
-  guessedLetters = []
-  wrongGuesses = 0
+  lines = []
+  boxes = Array(3)
+    .fill()
+    .map(() => Array(3).fill(""))
+  scores = { P1: 0, P2: 0 }
   currentTurn = "P1"
   gameActive = true
 
@@ -449,15 +471,11 @@ function resetGame() {
   statusEl.classList.remove("game-win", "game-lose", "game-draw")
   statusEl.textContent = "New game started!"
 
-  // Clear input
-  document.getElementById("letterInput").value = ""
-
   // Reset displays
-  updateWordDisplay()
-  updateLettersGrid()
-  updateWrongCount()
-  updateHangman()
-  updateTurnInfo()
+  updateLinesDisplay()
+  updateBoxesDisplay()
+  updateScores()
+  updateTurnIndicator()
 }
 
 // Go back to the lobby

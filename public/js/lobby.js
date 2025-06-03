@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Update the game type title
-  const gameTitle = gameType === "tictactoe" ? "Tic Tac Toe" : "Rock Paper Scissors"
+  const gameTitle = getGameTitle(gameType)
   document.getElementById("gameTypeTitle").textContent = gameTitle + " Lobby"
 
   // Connect to WebSocket server
@@ -38,6 +38,19 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("gameCode").textContent = gameCode
   }
 })
+
+// Get game title from game type
+function getGameTitle(gameType) {
+  const titles = {
+    tictactoe: "Tic Tac Toe",
+    rps: "Rock Paper Scissors",
+    connect4: "Connect 4",
+    guessnumber: "Number Guessing",
+    wordguess: "Word Guessing",
+    dots: "Dots & Boxes",
+  }
+  return titles[gameType] || "Unknown Game"
+}
 
 // Connect to the WebSocket server
 function connectToServer() {
@@ -213,10 +226,21 @@ function handleStartGame(data) {
   // Small delay to ensure session storage is written
   setTimeout(() => {
     // Redirect to the appropriate game page
-    if (data.gameType === "tictactoe") {
-      window.location.href = "game.html"
-    } else if (data.gameType === "rps") {
-      window.location.href = "rps.html"
+    const gamePages = {
+      tictactoe: "game.html",
+      rps: "rps.html",
+      connect4: "connect4.html",
+      guessnumber: "guessnumber.html",
+      wordguess: "wordguess.html",
+      dots: "dots.html",
+    }
+
+    const targetPage = gamePages[data.gameType]
+    if (targetPage) {
+      window.location.href = targetPage
+    } else {
+      console.error("Unknown game type:", data.gameType)
+      document.getElementById("statusMessage").textContent = "Error: Unknown game type"
     }
   }, 100)
 }

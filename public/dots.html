@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dots & Boxes</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .dots-container {
+      max-width: 500px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #1e1e1e;
+      border-radius: 12px;
+    }
+    
+    .dots-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 40px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #333;
+      border-radius: 8px;
+      max-width: 320px;
+      position: relative;
+    }
+    
+    .dot {
+      width: 12px;
+      height: 12px;
+      background-color: #fff;
+      border-radius: 50%;
+      position: relative;
+      cursor: pointer;
+    }
+    
+    .line {
+      position: absolute;
+      background-color: #00c853;
+      z-index: 1;
+    }
+    
+    .line.horizontal {
+      height: 3px;
+      width: 40px;
+      top: 50%;
+      left: 100%;
+      transform: translateY(-50%);
+    }
+    
+    .line.vertical {
+      width: 3px;
+      height: 40px;
+      left: 50%;
+      top: 100%;
+      transform: translateX(-50%);
+    }
+    
+    .line.player1 {
+      background-color: #00c853;
+    }
+    
+    .line.player2 {
+      background-color: #ff9100;
+    }
+    
+    .box {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.2rem;
+      border-radius: 4px;
+    }
+    
+    .box.player1 {
+      background-color: rgba(0, 200, 83, 0.3);
+      color: #00c853;
+    }
+    
+    .box.player2 {
+      background-color: rgba(255, 145, 0, 0.3);
+      color: #ff9100;
+    }
+    
+    .turn-info {
+      text-align: center;
+      margin: 20px 0;
+      font-size: 1.3rem;
+    }
+    
+    .turn-player1 {
+      color: #00c853;
+    }
+    
+    .turn-player2 {
+      color: #ff9100;
+    }
+    
+    .game-instructions {
+      background-color: #333;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Dots & Boxes</h1>
+    <div id="statusMessage" class="status">Connecting to game...</div>
+    
+    <div class="dots-container">
+      <div class="turn-info">
+        <div id="turnIndicator" class="turn-player1">Player 1's Turn</div>
+      </div>
+      
+      <div class="game-instructions">
+        <strong>How to play:</strong><br>
+        • Click between dots to draw lines<br>
+        • Complete a box to score a point<br>
+        • Get an extra turn when you complete a box<br>
+        • Most boxes wins!
+      </div>
+      
+      <div class="dots-grid" id="dotsGrid">
+        <!-- Dots and lines will be generated here -->
+      </div>
+    </div>
+    
+    <div class="score-board">
+      <div class="score-card">
+        <h3 id="player1Name">Player 1</h3>
+        <p id="scoreP1">0</p>
+      </div>
+      <div class="score-card">
+        <h3>Total Boxes</h3>
+        <p>9</p>
+      </div>
+      <div class="score-card">
+        <h3 id="player2Name">Player 2</h3>
+        <p id="scoreP2">0</p>
+      </div>
+    </div>
+    
+    <button id="restartGame">New Game</button>
+    <button id="backButton" onclick="goBack()">Back to Lobby</button>
+  </main>
+  <script src="js/dots.js"></script>
+</body>
+</html>
