@@ -1,5 +1,3 @@
-// Enhanced dots.js with chat integration
-// Global variables
 let socket
 let gameCode = ""
 let playerRole = ""
@@ -12,15 +10,15 @@ let boxes = Array(3)
   .fill()
   .map(() => Array(3).fill(""))
 let scores = { P1: 0, P2: 0 }
-let gameChat = null // Chat instance
+let gameChat = null 
 let reconnectAttempts = 0
 const maxReconnectAttempts = 5
 
-// Initialize the page
+
 document.addEventListener("DOMContentLoaded", () => {
   console.log("Dots & Boxes game page loaded")
 
-  // Get data from session storage
+
   gameCode = sessionStorage.getItem("gameCode")
   playerRole = sessionStorage.getItem("playerRole")
   isHost = sessionStorage.getItem("isHost") === "true"
@@ -37,19 +35,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return
   }
 
-  // Update player names
   updatePlayerNames()
 
-  // Create the dots grid
   createDotsGrid()
 
-  // Connect to WebSocket server
   connectToServer()
 
-  // Set up event listeners
+
   document.getElementById("restartGame").addEventListener("click", requestRestart)
 
-  // Update restart button text based on host status
+
   if (isHost) {
     document.getElementById("restartGame").textContent = "New Game"
   } else {
@@ -57,7 +52,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 })
 
-// Update player names in the UI
 function updatePlayerNames() {
   if (playerRole === "P1") {
     document.getElementById("player1Name").textContent = `${username} (P1)`
@@ -68,12 +62,10 @@ function updatePlayerNames() {
   }
 }
 
-// Create the dots grid
 function createDotsGrid() {
   const grid = document.getElementById("dotsGrid")
   grid.innerHTML = ""
 
-  // Create 4x4 grid of dots
   for (let row = 0; row < 4; row++) {
     for (let col = 0; col < 4; col++) {
       const dot = document.createElement("div")
@@ -81,7 +73,6 @@ function createDotsGrid() {
       dot.dataset.row = row
       dot.dataset.col = col
 
-      // Add click handlers for horizontal lines (except last column)
       if (col < 3) {
         const hLine = document.createElement("div")
         hLine.classList.add("line-placeholder", "horizontal")
@@ -92,7 +83,6 @@ function createDotsGrid() {
         dot.appendChild(hLine)
       }
 
-      // Add click handlers for vertical lines (except last row)
       if (row < 3) {
         const vLine = document.createElement("div")
         vLine.classList.add("line-placeholder", "vertical")
@@ -108,7 +98,6 @@ function createDotsGrid() {
   }
 }
 
-// Connect to the WebSocket server
 function connectToServer() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
   const wsUrl = `${protocol}//${window.location.hostname}:8080/ws`
@@ -121,7 +110,6 @@ function connectToServer() {
     console.log("WebSocket connection established")
     reconnectAttempts = 0
 
-    // Initialize chat after socket connection
     initializeChat()
 
     socket.send(
@@ -142,7 +130,6 @@ function connectToServer() {
   socket.onclose = (event) => {
     console.log("WebSocket connection closed:", event)
 
-    // Destroy chat on disconnect
     if (gameChat) {
       gameChat.destroy()
       gameChat = null
@@ -178,12 +165,10 @@ function connectToServer() {
   }
 }
 
-// Initialize chat
 function initializeChat() {
   if (socket && username && playerRole) {
     gameChat = new GameChat(socket, username, playerRole)
 
-    // Add welcome message
     setTimeout(() => {
       if (gameChat) {
         gameChat.addSystemMessage(`Welcome to Dots & Boxes! Draw lines to complete boxes and score points.`)
@@ -192,7 +177,6 @@ function initializeChat() {
   }
 }
 
-// Handle incoming WebSocket messages
 function handleMessage(msg) {
   console.log("Processing message:", msg)
 
@@ -233,7 +217,6 @@ function handleMessage(msg) {
   }
 }
 
-// Handle lobby update (when second player joins)
 function handleLobbyUpdate(data) {
   if (data.players && data.players.length === 2 && gameChat) {
     const otherPlayer = data.players.find((p) => p.username !== username)
@@ -243,13 +226,11 @@ function handleLobbyUpdate(data) {
   }
 }
 
-// Handle error messages
 function handleError(errorMessage) {
   console.error("Server error:", errorMessage)
   document.getElementById("statusMessage").textContent = `Error: ${errorMessage}`
 }
 
-// Handle player left message
 function handlePlayerLeft(data) {
   if (data.isHost) {
     document.getElementById("statusMessage").textContent = `Host ${data.username} left the game`
@@ -263,8 +244,6 @@ function handlePlayerLeft(data) {
 
   gameActive = false
 }
-
-// Handle game state message
 function handleGameState(state) {
   console.log("Received game state:", state)
 
@@ -291,7 +270,6 @@ function handleGameState(state) {
   gameActive = state.gameActive
 }
 
-// Handle room joined message
 function handleRoomJoined(data) {
   console.log("Room joined:", data)
   gameCode = data.code
@@ -312,7 +290,6 @@ function handleRoomJoined(data) {
   )
 }
 
-// Handle line click
 function handleLineClick(type, row, col) {
   if (!gameActive) {
     alert("Game is not active!")
@@ -324,16 +301,14 @@ function handleLineClick(type, row, col) {
     return
   }
 
-  // Check if line already exists
   const lineExists = lines.some((line) => line.type === type && line.row === row && line.col === col)
 
   if (lineExists) {
-    return // Line already drawn
+    return 
   }
 
   console.log("Drawing line:", type, row, col)
 
-  // Send move to server
   socket.send(
     JSON.stringify({
       type: "dotsMove",
@@ -346,32 +321,26 @@ function handleLineClick(type, row, col) {
   )
 }
 
-// Handle dots move from server
 function handleDotsMove(move) {
   console.log("Handling dots move:", move)
 
-  // Add the line
   lines.push(move)
   updateLinesDisplay()
 
-  // Check for completed boxes
   checkCompletedBoxes()
 
-  // Update turn (server will handle this)
   updateTurnIndicator()
 
-  // Add move notification to chat
   if (gameChat && move.username !== username) {
     gameChat.addSystemMessage(`${move.username} drew a ${move.type} line`)
   }
 }
 
-// Update lines display
 function updateLinesDisplay() {
-  // Remove existing lines
+
   document.querySelectorAll(".line").forEach((line) => line.remove())
 
-  // Add all lines
+
   lines.forEach((line) => {
     const lineElement = document.createElement("div")
     lineElement.classList.add("line", line.type, `player${line.player.slice(-1)}`)
@@ -394,12 +363,10 @@ function updateLinesDisplay() {
   })
 }
 
-// Check for completed boxes
 function checkCompletedBoxes() {
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 3; col++) {
       if (boxes[row][col] === "") {
-        // Check if all 4 sides of this box are drawn
         const topLine = lines.find((l) => l.type === "horizontal" && l.row === row && l.col === col)
         const bottomLine = lines.find((l) => l.type === "horizontal" && l.row === row + 1 && l.col === col)
         const leftLine = lines.find((l) => l.type === "vertical" && l.row === row && l.col === col)
@@ -409,7 +376,6 @@ function checkCompletedBoxes() {
           boxes[row][col] = currentTurn
           scores[currentTurn]++
 
-          // Add box completion notification to chat
           if (gameChat) {
             gameChat.addSystemMessage(`📦 ${currentTurn === playerRole ? "You" : "Opponent"} completed a box!`)
           }
@@ -422,12 +388,10 @@ function checkCompletedBoxes() {
   updateScores()
 }
 
-// Update boxes display
 function updateBoxesDisplay() {
-  // Remove existing boxes
+
   document.querySelectorAll(".box").forEach((box) => box.remove())
 
-  // Add completed boxes
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 3; col++) {
       if (boxes[row][col] !== "") {
@@ -445,13 +409,11 @@ function updateBoxesDisplay() {
   }
 }
 
-// Update scores
 function updateScores() {
   document.getElementById("scoreP1").textContent = scores.P1
   document.getElementById("scoreP2").textContent = scores.P2
 }
 
-// Update turn indicator
 function updateTurnIndicator() {
   const indicator = document.getElementById("turnIndicator")
 
@@ -469,7 +431,6 @@ function updateTurnIndicator() {
   }
 }
 
-// Handle game end
 function handleGameEnd(result) {
   console.log("Game ended:", result)
   gameActive = false
@@ -511,7 +472,6 @@ function handleGameEnd(result) {
   updateTurnIndicator()
 }
 
-// Request a game restart
 function requestRestart() {
   if (!isHost) {
     alert("Only the host can restart the game!")
@@ -526,7 +486,6 @@ function requestRestart() {
   )
 }
 
-// Reset the game
 function resetGame() {
   console.log("Resetting game")
   lines = []
@@ -537,24 +496,20 @@ function resetGame() {
   currentTurn = "P1"
   gameActive = true
 
-  // Remove game end classes
   const statusEl = document.getElementById("statusMessage")
   statusEl.classList.remove("game-win", "game-lose", "game-draw")
   statusEl.textContent = "New game started!"
 
-  // Reset displays
   updateLinesDisplay()
   updateBoxesDisplay()
   updateScores()
   updateTurnIndicator()
 
-  // Add restart notification to chat
   if (gameChat) {
     gameChat.addSystemMessage("🔄 New game started!")
   }
 }
 
-// Go back to the lobby
 function goBack() {
   if (gameChat) {
     gameChat.destroy()
@@ -562,7 +517,6 @@ function goBack() {
   window.location.href = "lobby.html"
 }
 
-// Get user stats from localStorage
 function getUserStats() {
   const stats = localStorage.getItem("miniGamesStats")
   if (stats) {
@@ -576,12 +530,10 @@ function getUserStats() {
   }
 }
 
-// Save user stats to localStorage
 function saveUserStats(stats) {
   localStorage.setItem("miniGamesStats", JSON.stringify(stats))
 }
 
-// Update stats after a game
 function updateStats(result) {
   const stats = getUserStats()
   stats.gamesPlayed++

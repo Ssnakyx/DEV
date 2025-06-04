@@ -34,7 +34,6 @@ type Player struct {
 	Username string
 	Role     string
 }
-
 type GameRoom struct {
 	Code      string
 	GameType  string
@@ -44,7 +43,6 @@ type GameRoom struct {
 	CreatedAt time.Time
 	mu        sync.Mutex
 }
-
 type Message struct {
 	Type     string `json:"type"`
 	Payload  string `json:"payload"`
@@ -52,32 +50,26 @@ type Message struct {
 	Code     string `json:"code,omitempty"`
 	Username string `json:"username,omitempty"`
 }
-
-// Chat message structure
 type ChatMessage struct {
 	Username  string    `json:"username"`
 	Message   string    `json:"message"`
 	Timestamp time.Time `json:"timestamp"`
 	Role      string    `json:"role"`
 }
-
 type TicTacToeState struct {
 	Board       [9]string
 	CurrentTurn string
 	GameActive  bool
 }
-
 type RPSState struct {
 	Choices map[string]string
 	Round   int
 }
-
 type Connect4State struct {
 	Board       [6][7]string
 	CurrentTurn string
 	GameActive  bool
 }
-
 type GuessNumberState struct {
 	TargetNumber int
 	Guesses      map[string][]int
@@ -85,7 +77,6 @@ type GuessNumberState struct {
 	GameActive   bool
 	Winner       string
 }
-
 type WordGuessState struct {
 	Word            string
 	GuessedWord     []string
@@ -95,7 +86,6 @@ type WordGuessState struct {
 	GameActive      bool
 	CurrentTurn     string
 }
-
 type DotsState struct {
 	Grid        [4][4]bool
 	Lines       []Line
@@ -104,7 +94,6 @@ type DotsState struct {
 	GameActive  bool
 	Scores      map[string]int
 }
-
 type Line struct {
 	StartX, StartY, EndX, EndY int
 	Player                     string
@@ -115,7 +104,6 @@ var (
 	roomsMu   sync.Mutex
 	broadcast = make(chan Message)
 )
-
 var wordList = []string{
 	"JAVASCRIPT", "COMPUTER", "PROGRAMMING", "WEBSITE", "INTERNET", "KEYBOARD",
 	"MONITOR", "SOFTWARE", "HARDWARE", "DATABASE", "NETWORK", "SECURITY",
@@ -126,14 +114,11 @@ var wordList = []string{
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
-
 func main() {
 	http.Handle("/", http.FileServer(http.Dir("./public")))
 	http.HandleFunc("/ws", handleConnections)
-
 	go handleMessages()
 	go roomCleanupRoutine()
-
 	fmt.Println("Server running on http://localhost:8080")
 	log.Println("Access via local network at http://(Your IP):8080")
 	err := http.ListenAndServe(":8080", nil)
@@ -141,11 +126,9 @@ func main() {
 		log.Fatal("Error starting server:", err)
 	}
 }
-
 func roomCleanupRoutine() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ticker.C:
@@ -163,26 +146,21 @@ func roomCleanupRoutine() {
 		}
 	}
 }
-
 func handleConnections(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Error upgrading connection: %v", err)
 		return
 	}
-
 	log.Printf("New client connected from %s", ws.RemoteAddr())
-
 	ws.SetReadDeadline(time.Now().Add(60 * time.Second))
 	ws.SetPongHandler(func(string) error {
 		ws.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
-
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
-
 		for {
 			select {
 			case <-ticker.C:
@@ -193,7 +171,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-
 	for {
 		var msg Message
 		err := ws.ReadJSON(&msg)
@@ -202,9 +179,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Client disconnected: %v", err)
 			break
 		}
-
 		log.Printf("Received message: %+v", msg)
-
 		switch msg.Type {
 		case "create":
 			handleCreateRoom(ws, msg)
@@ -232,72 +207,57 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Handle chat messages
 func handleChatMessage(ws *websocket.Conn, msg Message) {
 	roomCode := findPlayerRoom(ws)
 	if roomCode == "" {
 		return
 	}
-
 	roomsMu.Lock()
 	room := rooms[roomCode]
 	roomsMu.Unlock()
-
 	if room == nil {
 		return
 	}
-
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	player := room.Players[ws]
 	if player == nil {
 		return
 	}
-
 	var chatPayload struct {
 		Message string `json:"message"`
 	}
-
 	if err := json.Unmarshal([]byte(msg.Payload), &chatPayload); err != nil {
 		log.Printf("Error parsing chat message: %v", err)
 		return
 	}
-
-	// Validate message
 	if len(chatPayload.Message) == 0 || len(chatPayload.Message) > 500 {
 		return
 	}
 
-	// Create chat message
 	chatMsg := ChatMessage{
 		Username:  player.Username,
 		Message:   chatPayload.Message,
 		Timestamp: time.Now(),
 		Role:      player.Role,
 	}
-
 	chatMsgJSON, err := json.Marshal(chatMsg)
 	if err != nil {
 		log.Printf("Error marshaling chat message: %v", err)
 		return
 	}
 
-	// Broadcast to all players in the room
 	broadcastMsg := Message{
 		Type:    "chatMessage",
 		Payload: string(chatMsgJSON),
 	}
-
 	for client := range room.Players {
 		if err := client.WriteJSON(broadcastMsg); err != nil {
 			log.Printf("Error sending chat message to client: %v", err)
 		}
 	}
-
 	log.Printf("Chat message from %s in room %s: %s", player.Username, roomCode, chatPayload.Message)
 }
-
 func generateRoomCode() string {
 	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	code := make([]byte, 6)
@@ -306,21 +266,17 @@ func generateRoomCode() string {
 	}
 	return string(code)
 }
-
 func handleCreateRoom(ws *websocket.Conn, msg Message) {
 	roomsMu.Lock()
 	defer roomsMu.Unlock()
-
 	code := generateRoomCode()
 	for rooms[code] != nil {
 		code = generateRoomCode()
 	}
-
 	gameType := msg.GameType
 	if gameType == "" {
 		gameType = GameTypeTicTacToe
 	}
-
 	room := &GameRoom{
 		Code:      code,
 		GameType:  gameType,
@@ -328,7 +284,6 @@ func handleCreateRoom(ws *websocket.Conn, msg Message) {
 		Host:      ws,
 		CreatedAt: time.Now(),
 	}
-
 	switch gameType {
 	case GameTypeTicTacToe:
 		room.GameState = TicTacToeState{
@@ -385,21 +340,16 @@ func handleCreateRoom(ws *websocket.Conn, msg Message) {
 		}
 		room.Players[ws] = &Player{Conn: ws, Username: msg.Username, Role: "P1"}
 	}
-
 	rooms[code] = room
-
 	log.Printf("Room created: %s, GameType: %s, Host: %s (%s)", code, gameType, msg.Username, room.Players[ws].Role)
-
 	response := Message{
 		Type: "roomCreated",
 		Payload: fmt.Sprintf(`{"code":"%s","role":"%s","gameType":"%s","isHost":true,"username":"%s"}`,
 			code, room.Players[ws].Role, gameType, msg.Username),
 	}
 	ws.WriteJSON(response)
-
 	updateLobby(room)
 }
-
 func handleJoinRoom(ws *websocket.Conn, msg Message) {
 	var payload struct {
 		Code     string `json:"code"`
@@ -408,17 +358,13 @@ func handleJoinRoom(ws *websocket.Conn, msg Message) {
 	json.Unmarshal([]byte(msg.Payload), &payload)
 	code := payload.Code
 	username := payload.Username
-
 	if username == "" {
 		username = msg.Username
 	}
-
 	log.Printf("User %s attempting to join room: %s", username, code)
-
 	roomsMu.Lock()
 	room, exists := rooms[code]
 	roomsMu.Unlock()
-
 	if !exists {
 		log.Printf("Room %s not found", code)
 		ws.WriteJSON(Message{
@@ -427,41 +373,33 @@ func handleJoinRoom(ws *websocket.Conn, msg Message) {
 		})
 		return
 	}
-
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	for conn, player := range room.Players {
 		if player.Username == username {
 			log.Printf("Player %s reconnecting to room %s as %s", player.Username, code, player.Role)
-
 			delete(room.Players, conn)
 			room.Players[ws] = player
 			player.Conn = ws
-
 			if conn == room.Host {
 				room.Host = ws
 			}
-
 			isHost := (ws == room.Host)
 			ws.WriteJSON(Message{
 				Type: "roomJoined",
 				Payload: fmt.Sprintf(`{"code":"%s","role":"%s","gameType":"%s","isHost":%t,"username":"%s"}`,
 					code, player.Role, room.GameType, isHost, player.Username),
 			})
-
 			sendGameState(ws, room)
 			updateLobby(room)
 			return
 		}
 	}
-
 	if len(room.Players) >= 2 {
 		log.Printf("Room %s is full", code)
 		ws.WriteJSON(Message{Type: "error", Payload: "Room is full"})
 		return
 	}
-
 	var role string
 	switch room.GameType {
 	case GameTypeTicTacToe:
@@ -473,30 +411,24 @@ func handleJoinRoom(ws *websocket.Conn, msg Message) {
 	case GameTypeGuessNumber, GameTypeWordGuess, GameTypeDots:
 		role = "P2"
 	}
-
 	room.Players[ws] = &Player{
 		Conn:     ws,
 		Username: username,
 		Role:     role,
 	}
-
 	log.Printf("Player %s joined room %s as %s", username, code, role)
-
 	response := Message{
 		Type: "roomJoined",
 		Payload: fmt.Sprintf(`{"code":"%s","role":"%s","gameType":"%s","isHost":false,"username":"%s"}`,
 			code, role, room.GameType, username),
 	}
 	ws.WriteJSON(response)
-
 	sendGameState(ws, room)
 	updateLobby(room)
-
 	if len(room.Players) == 2 {
 		startGame(room)
 	}
 }
-
 func sendGameState(ws *websocket.Conn, room *GameRoom) {
 	switch room.GameType {
 	case GameTypeTicTacToe:
@@ -558,41 +490,33 @@ func sendGameState(ws *websocket.Conn, room *GameRoom) {
 		ws.WriteJSON(gameStateMsg)
 	}
 }
-
 func handleGetGameState(ws *websocket.Conn, msg Message) {
 	var payload struct {
 		Code string `json:"code"`
 	}
 	json.Unmarshal([]byte(msg.Payload), &payload)
-
 	roomsMu.Lock()
 	room, exists := rooms[payload.Code]
 	roomsMu.Unlock()
-
 	if !exists {
 		ws.WriteJSON(Message{Type: "error", Payload: "Room not found"})
 		return
 	}
-
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	_, isInRoom := room.Players[ws]
 	if !isInRoom {
 		ws.WriteJSON(Message{Type: "error", Payload: "You are not in this room"})
 		return
 	}
-
 	sendGameState(ws, room)
 }
-
 func updateLobby(room *GameRoom) {
 	type PlayerInfo struct {
 		Username string `json:"username"`
 		Role     string `json:"role"`
 		IsHost   bool   `json:"isHost"`
 	}
-
 	players := make([]PlayerInfo, 0, len(room.Players))
 	for conn, player := range room.Players {
 		isHost := (conn == room.Host)
@@ -602,7 +526,6 @@ func updateLobby(room *GameRoom) {
 			IsHost:   isHost,
 		})
 	}
-
 	playersJSON, _ := json.Marshal(players)
 	for client, player := range room.Players {
 		isHost := (client == room.Host)
@@ -613,7 +536,6 @@ func updateLobby(room *GameRoom) {
 		})
 	}
 }
-
 func startGame(room *GameRoom) {
 	for client, player := range room.Players {
 		isHost := (client == room.Host)
@@ -624,39 +546,31 @@ func startGame(room *GameRoom) {
 		})
 	}
 }
-
 func handleConnect4Move(ws *websocket.Conn, msg Message) {
 	roomCode := findPlayerRoom(ws)
 	if roomCode == "" {
 		return
 	}
-
 	roomsMu.Lock()
 	room := rooms[roomCode]
 	roomsMu.Unlock()
-
 	if room == nil {
 		return
 	}
-
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	state, ok := room.GameState.(Connect4State)
 	if !ok || !state.GameActive {
 		return
 	}
-
 	var move struct {
 		Column int `json:"column"`
 	}
 	json.Unmarshal([]byte(msg.Payload), &move)
-
 	player := room.Players[ws]
 	if player == nil || player.Role != state.CurrentTurn {
 		return
 	}
-
 	row := -1
 	for r := 5; r >= 0; r-- {
 		if state.Board[r][move.Column] == "" {
@@ -664,59 +578,45 @@ func handleConnect4Move(ws *websocket.Conn, msg Message) {
 			break
 		}
 	}
-
 	if row == -1 {
 		return
 	}
-
 	state.Board[row][move.Column] = player.Role
-
 	if state.CurrentTurn == "Red" {
 		state.CurrentTurn = "Yellow"
 	} else {
 		state.CurrentTurn = "Red"
 	}
-
 	room.GameState = state
-
 	moveMsg := Message{
 		Type: "connect4Move",
 		Payload: fmt.Sprintf(`{"row":%d,"column":%d,"player":"%s","username":"%s"}`,
 			row, move.Column, player.Role, player.Username),
 	}
-
 	for client := range room.Players {
 		client.WriteJSON(moveMsg)
 	}
-
 	checkConnect4GameEnd(room, row, move.Column)
 }
-
 func checkConnect4GameEnd(room *GameRoom, row, col int) {
 	state := room.GameState.(Connect4State)
 	player := state.Board[row][col]
-
 	directions := [][2]int{{0, 1}, {1, 0}, {1, 1}, {1, -1}}
-
 	for _, dir := range directions {
 		count := 1
-
 		r, c := row+dir[0], col+dir[1]
 		for r >= 0 && r < 6 && c >= 0 && c < 7 && state.Board[r][c] == player {
 			count++
 			r, c = r+dir[0], c+dir[1]
 		}
-
 		r, c = row-dir[0], col-dir[1]
 		for r >= 0 && r < 6 && c >= 0 && c < 7 && state.Board[r][c] == player {
 			count++
 			r, c = r-dir[0], c-dir[1]
 		}
-
 		if count >= 4 {
 			state.GameActive = false
 			room.GameState = state
-
 			var winnerUsername string
 			for _, p := range room.Players {
 				if p.Role == player {
@@ -724,7 +624,6 @@ func checkConnect4GameEnd(room *GameRoom, row, col int) {
 					break
 				}
 			}
-
 			for client := range room.Players {
 				client.WriteJSON(Message{
 					Type:    "gameEnd",
@@ -734,7 +633,6 @@ func checkConnect4GameEnd(room *GameRoom, row, col int) {
 			return
 		}
 	}
-
 	full := true
 	for c := 0; c < 7; c++ {
 		if state.Board[0][c] == "" {
@@ -742,11 +640,9 @@ func checkConnect4GameEnd(room *GameRoom, row, col int) {
 			break
 		}
 	}
-
 	if full {
 		state.GameActive = false
 		room.GameState = state
-
 		for client := range room.Players {
 			client.WriteJSON(Message{
 				Type:    "gameEnd",
@@ -755,44 +651,35 @@ func checkConnect4GameEnd(room *GameRoom, row, col int) {
 		}
 	}
 }
-
 func handleNumberGuess(ws *websocket.Conn, msg Message) {
 	roomCode := findPlayerRoom(ws)
 	if roomCode == "" {
 		return
 	}
-
 	roomsMu.Lock()
 	room := rooms[roomCode]
 	roomsMu.Unlock()
-
 	if room == nil {
 		return
 	}
-
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	state, ok := room.GameState.(GuessNumberState)
 	if !ok || !state.GameActive {
 		return
 	}
-
 	var guess struct {
 		Number int `json:"number"`
 	}
 	json.Unmarshal([]byte(msg.Payload), &guess)
-
 	player := room.Players[ws]
 	if player == nil {
 		return
 	}
-
 	if state.Guesses[player.Role] == nil {
 		state.Guesses[player.Role] = []int{}
 	}
 	state.Guesses[player.Role] = append(state.Guesses[player.Role], guess.Number)
-
 	var result string
 	if guess.Number == state.TargetNumber {
 		result = "correct"
@@ -803,7 +690,6 @@ func handleNumberGuess(ws *websocket.Conn, msg Message) {
 	} else {
 		result = "lower"
 	}
-
 	if len(state.Guesses[player.Role]) >= state.MaxGuesses && state.GameActive {
 		state.GameActive = false
 		otherRole := "P1"
@@ -814,62 +700,48 @@ func handleNumberGuess(ws *websocket.Conn, msg Message) {
 			state.Winner = otherRole
 		}
 	}
-
 	room.GameState = state
-
 	resultMsg := Message{
 		Type: "numberGuessResult",
 		Payload: fmt.Sprintf(`{"player":"%s","username":"%s","guess":%d,"result":"%s","target":%d,"gameActive":%t,"winner":"%s"}`,
 			player.Role, player.Username, guess.Number, result, state.TargetNumber, state.GameActive, state.Winner),
 	}
-
 	for client := range room.Players {
 		client.WriteJSON(resultMsg)
 	}
 }
-
 func handleLetterGuess(ws *websocket.Conn, msg Message) {
 	roomCode := findPlayerRoom(ws)
 	if roomCode == "" {
 		return
 	}
-
 	roomsMu.Lock()
 	room := rooms[roomCode]
 	roomsMu.Unlock()
-
 	if room == nil {
 		return
 	}
-
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	state, ok := room.GameState.(WordGuessState)
 	if !ok || !state.GameActive {
 		return
 	}
-
 	var guess struct {
 		Letter string `json:"letter"`
 	}
 	json.Unmarshal([]byte(msg.Payload), &guess)
-
 	player := room.Players[ws]
 	if player == nil || player.Role != state.CurrentTurn {
 		return
 	}
-
 	letter := guess.Letter
-
 	for _, l := range state.GuessedLetters {
 		if l == letter {
 			return
 		}
 	}
-
 	state.GuessedLetters = append(state.GuessedLetters, letter)
-
 	found := false
 	for i, char := range state.Word {
 		if string(char) == letter {
@@ -877,11 +749,9 @@ func handleLetterGuess(ws *websocket.Conn, msg Message) {
 			found = true
 		}
 	}
-
 	if !found {
 		state.WrongGuesses++
 	}
-
 	wordComplete := true
 	for _, char := range state.GuessedWord {
 		if char == "_" {
@@ -889,116 +759,91 @@ func handleLetterGuess(ws *websocket.Conn, msg Message) {
 			break
 		}
 	}
-
 	if wordComplete {
 		state.GameActive = false
 	} else if state.WrongGuesses >= state.MaxWrongGuesses {
 		state.GameActive = false
 	} else {
-
 		if state.CurrentTurn == "P1" {
 			state.CurrentTurn = "P2"
 		} else {
 			state.CurrentTurn = "P1"
 		}
 	}
-
 	room.GameState = state
-
 	guessedWordJSON, _ := json.Marshal(state.GuessedWord)
 	guessedLettersJSON, _ := json.Marshal(state.GuessedLetters)
-
 	resultMsg := Message{
 		Type: "letterGuessResult",
 		Payload: fmt.Sprintf(`{"letter":"%s","found":%t,"guessedWord":%s,"guessedLetters":%s,"wrongGuesses":%d,"gameActive":%t,"currentTurn":"%s","word":"%s"}`,
 			letter, found, guessedWordJSON, guessedLettersJSON, state.WrongGuesses, state.GameActive, state.CurrentTurn, state.Word),
 	}
-
 	for client := range room.Players {
 		client.WriteJSON(resultMsg)
 	}
 }
-
 func handleGameMove(ws *websocket.Conn, msg Message) {
 	roomCode := findPlayerRoom(ws)
 	if roomCode == "" {
 		return
 	}
-
 	roomsMu.Lock()
 	room := rooms[roomCode]
 	roomsMu.Unlock()
-
 	if room == nil {
 		return
 	}
-
 	if room.GameType == GameTypeTicTacToe {
 		handleTicTacToeMove(room, ws, msg)
 	}
 }
-
 func handleTicTacToeMove(room *GameRoom, ws *websocket.Conn, msg Message) {
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	state, ok := room.GameState.(TicTacToeState)
 	if !ok || !state.GameActive {
 		return
 	}
-
 	var move struct {
 		Index  int    `json:"index"`
 		Player string `json:"player"`
 	}
 	json.Unmarshal([]byte(msg.Payload), &move)
-
 	player := room.Players[ws]
 	if player == nil || player.Role != state.CurrentTurn {
 		return
 	}
-
 	if move.Index < 0 || move.Index >= 9 || state.Board[move.Index] != "" {
 		return
 	}
-
 	state.Board[move.Index] = player.Role
-
 	if state.CurrentTurn == "X" {
 		state.CurrentTurn = "O"
 	} else {
 		state.CurrentTurn = "X"
 	}
-
 	room.GameState = state
-
 	moveMsg := Message{
 		Type:    "move",
 		Payload: fmt.Sprintf(`{"index":%d,"player":"%s","username":"%s"}`, move.Index, player.Role, player.Username),
 	}
-
 	for client := range room.Players {
 		client.WriteJSON(moveMsg)
 	}
-
 	checkTicTacToeGameEnd(room)
 }
-
 func checkTicTacToeGameEnd(room *GameRoom) {
 	state := room.GameState.(TicTacToeState)
-
 	winningCombos := [][3]int{
 		{0, 1, 2}, {3, 4, 5}, {6, 7, 8},
 		{0, 3, 6}, {1, 4, 7}, {2, 5, 8},
 		{0, 4, 8}, {2, 4, 6},
 	}
-
 	for _, combo := range winningCombos {
 		a, b, c := combo[0], combo[1], combo[2]
 		if state.Board[a] != "" && state.Board[a] == state.Board[b] && state.Board[a] == state.Board[c] {
 			state.GameActive = false
 			room.GameState = state
-
 			var winnerUsername string
 			for _, player := range room.Players {
 				if player.Role == state.Board[a] {
@@ -1006,7 +851,6 @@ func checkTicTacToeGameEnd(room *GameRoom) {
 					break
 				}
 			}
-
 			for client := range room.Players {
 				client.WriteJSON(Message{
 					Type:    "gameEnd",
@@ -1016,7 +860,6 @@ func checkTicTacToeGameEnd(room *GameRoom) {
 			return
 		}
 	}
-
 	isDraw := true
 	for _, cell := range state.Board {
 		if cell == "" {
@@ -1024,11 +867,9 @@ func checkTicTacToeGameEnd(room *GameRoom) {
 			break
 		}
 	}
-
 	if isDraw {
 		state.GameActive = false
 		room.GameState = state
-
 		for client := range room.Players {
 			client.WriteJSON(Message{
 				Type:    "gameEnd",
@@ -1037,24 +878,19 @@ func checkTicTacToeGameEnd(room *GameRoom) {
 		}
 	}
 }
-
 func handleGameRestart(ws *websocket.Conn, msg Message) {
 	roomCode := findPlayerRoom(ws)
 	if roomCode == "" {
 		return
 	}
-
 	roomsMu.Lock()
 	room := rooms[roomCode]
 	roomsMu.Unlock()
-
 	if room == nil {
 		return
 	}
-
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	if ws != room.Host {
 		ws.WriteJSON(Message{
 			Type:    "error",
@@ -1062,7 +898,6 @@ func handleGameRestart(ws *websocket.Conn, msg Message) {
 		})
 		return
 	}
-
 	switch room.GameType {
 	case GameTypeTicTacToe:
 		room.GameState = TicTacToeState{
@@ -1113,7 +948,6 @@ func handleGameRestart(ws *websocket.Conn, msg Message) {
 			Scores:      map[string]int{"P1": 0, "P2": 0},
 		}
 	}
-
 	for client := range room.Players {
 		client.WriteJSON(Message{
 			Type:    "restart",
@@ -1121,46 +955,36 @@ func handleGameRestart(ws *websocket.Conn, msg Message) {
 		})
 	}
 }
-
 func handleRPSChoice(ws *websocket.Conn, msg Message) {
 	roomCode := findPlayerRoom(ws)
 	if roomCode == "" {
 		return
 	}
-
 	roomsMu.Lock()
 	room := rooms[roomCode]
 	roomsMu.Unlock()
-
 	if room == nil {
 		return
 	}
-
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	state, ok := room.GameState.(RPSState)
 	if !ok {
 		return
 	}
-
 	var choice struct {
 		Choice string `json:"choice"`
 	}
 	json.Unmarshal([]byte(msg.Payload), &choice)
-
 	player := room.Players[ws]
 	if player == nil {
 		return
 	}
-
 	state.Choices[player.Role] = choice.Choice
 	room.GameState = state
-
 	if len(state.Choices) == 2 {
 		p1Choice := state.Choices["P1"]
 		p2Choice := state.Choices["P2"]
-
 		var result string
 		if p1Choice == p2Choice {
 			result = "draw"
@@ -1171,30 +995,24 @@ func handleRPSChoice(ws *websocket.Conn, msg Message) {
 		} else {
 			result = "P2"
 		}
-
 		resultMsg := Message{
 			Type: "rpsResult",
 			Payload: fmt.Sprintf(`{"p1":"%s","p2":"%s","winner":"%s","round":%d}`,
 				p1Choice, p2Choice, result, state.Round),
 		}
-
 		for client := range room.Players {
 			client.WriteJSON(resultMsg)
 		}
-
 		state.Choices = make(map[string]string)
 		state.Round++
 		room.GameState = state
 	}
 }
-
 func handleDotsMove(ws *websocket.Conn, msg Message) {
 }
-
 func findPlayerRoom(ws *websocket.Conn) string {
 	roomsMu.Lock()
 	defer roomsMu.Unlock()
-
 	for code, room := range rooms {
 		room.mu.Lock()
 		_, exists := room.Players[ws]
@@ -1205,31 +1023,24 @@ func findPlayerRoom(ws *websocket.Conn) string {
 	}
 	return ""
 }
-
 func handleDisconnect(ws *websocket.Conn) {
 	roomCode := findPlayerRoom(ws)
 	if roomCode == "" {
 		return
 	}
-
 	roomsMu.Lock()
 	defer roomsMu.Unlock()
-
 	room := rooms[roomCode]
 	if room == nil {
 		return
 	}
-
 	room.mu.Lock()
 	defer room.mu.Unlock()
-
 	player, exists := room.Players[ws]
 	if !exists {
 		return
 	}
-
 	isHost := (ws == room.Host)
-
 	for client := range room.Players {
 		if client != ws {
 			client.WriteJSON(Message{
@@ -1238,28 +1049,21 @@ func handleDisconnect(ws *websocket.Conn) {
 			})
 		}
 	}
-
 	go func() {
 		time.Sleep(10 * time.Second)
-
 		roomsMu.Lock()
 		defer roomsMu.Unlock()
-
 		room, exists := rooms[roomCode]
 		if !exists {
 			return
 		}
-
 		room.mu.Lock()
 		defer room.mu.Unlock()
-
 		currentPlayer, stillExists := room.Players[ws]
 		if stillExists && currentPlayer == player {
 			delete(room.Players, ws)
-
 			if isHost {
 				delete(rooms, roomCode)
-
 				for client := range room.Players {
 					client.WriteJSON(Message{
 						Type:    "hostLeft",
@@ -1272,7 +1076,6 @@ func handleDisconnect(ws *websocket.Conn) {
 		}
 	}()
 }
-
 func handleMessages() {
 	for {
 		<-broadcast

@@ -1,4 +1,4 @@
-// Chat functionality for multiplayer games
+
 class GameChat {
     constructor(socket, username, playerRole) {
       this.socket = socket
@@ -16,7 +16,6 @@ class GameChat {
     }
   
     createChatUI() {
-      // Create chat container
       const chatContainer = document.createElement("div")
       chatContainer.id = "chatContainer"
       chatContainer.className = "chat-container"
@@ -267,17 +266,17 @@ class GameChat {
       const chatInput = document.getElementById("chatInput")
       const chatSend = document.getElementById("chatSend")
   
-      // Toggle chat on header click
+
       chatHeader.addEventListener("click", () => {
         this.toggleChat()
       })
   
-      // Send message on button click
+
       chatSend.addEventListener("click", () => {
         this.sendMessage()
       })
   
-      // Send message on Enter key
+
       chatInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault()
@@ -285,14 +284,13 @@ class GameChat {
         }
       })
   
-      // Clear unread count when chat is opened
+
       chatInput.addEventListener("focus", () => {
         this.clearUnreadCount()
       })
     }
   
     setupSocketListeners() {
-      // Listen for chat messages
       this.socket.addEventListener("message", (event) => {
         try {
           const msg = JSON.parse(event.data)
@@ -336,7 +334,7 @@ class GameChat {
         return
       }
   
-      // Send message to server
+
       this.socket.send(
         JSON.stringify({
           type: "chat",
@@ -344,7 +342,7 @@ class GameChat {
         }),
       )
   
-      // Clear input
+
       chatInput.value = ""
     }
   
@@ -377,12 +375,12 @@ class GameChat {
       chatMessages.appendChild(messageDiv)
       this.scrollToBottom()
   
-      // Update unread count if chat is minimized
+
       if (this.isMinimized && !isOwnMessage) {
         this.incrementUnreadCount()
       }
   
-      // Add notification sound (optional)
+
       if (!isOwnMessage) {
         this.playNotificationSound()
       }
@@ -413,7 +411,6 @@ class GameChat {
     }
   
     playNotificationSound() {
-      // Create a subtle notification sound
       try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)()
         const oscillator = audioContext.createOscillator()
@@ -429,11 +426,10 @@ class GameChat {
         oscillator.start(audioContext.currentTime)
         oscillator.stop(audioContext.currentTime + 0.1)
       } catch (error) {
-        // Ignore audio errors
       }
     }
   
-    // Method to add system messages
+
     addSystemMessage(message) {
       const chatMessages = document.getElementById("chatMessages")
       const messageDiv = document.createElement("div")
@@ -443,7 +439,7 @@ class GameChat {
       this.scrollToBottom()
     }
   
-    // Method to destroy chat (cleanup)
+
     destroy() {
       const chatContainer = document.getElementById("chatContainer")
       if (chatContainer) {
@@ -452,6 +448,6 @@ class GameChat {
     }
   }
   
-  // Export for use in other files
+
   window.GameChat = GameChat
   
