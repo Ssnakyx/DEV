@@ -1,27 +1,24 @@
-// Enhanced connect4.js with chat integration
+// Enhanced game.js with chat integration
 // Global variables
 let socket
 let gameCode = ""
 let playerRole = ""
-let currentPlayer = "Red"
-let board = Array(6)
-  .fill()
-  .map(() => Array(7).fill(null))
+let currentPlayer = "X" // X always starts first
+let cells = Array(9).fill(null)
 let gameOver = false
 let isHost = false
 let username = ""
 let gameChat = null // Chat instance
-let reconnectAttempts = 0
-const maxReconnectAttempts = 5
+const opponentUsername = ""
 const scores = {
-  Red: 0,
-  Yellow: 0,
+  X: 0,
+  O: 0,
   draw: 0,
 }
 
 // Initialize the page
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("Connect4 page loaded")
+  console.log("Game page loaded")
 
   // Get data from session storage
   gameCode = sessionStorage.getItem("gameCode")
@@ -34,14 +31,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!gameCode || !playerRole || !username) {
     console.error("Missing game session data")
     document.getElementById("statusMessage").textContent = "Error: Game session not found"
-    setTimeout(() => {
-      window.location.href = "index.html"
-    }, 3000)
     return
   }
-
-  // Update player names
-  updatePlayerNames()
 
   // Create the game board
   createBoard()
@@ -50,7 +41,6 @@ document.addEventListener("DOMContentLoaded", () => {
   connectToServer()
 
   // Set up event listeners
-  document.getElementById("columnSelector").addEventListener("click", handleColumnClick)
   document.getElementById("restartGame").addEventListener("click", requestRestart)
 
   // Update restart button text based on host status
@@ -61,38 +51,27 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 })
 
-// Update player names in the UI
-function updatePlayerNames() {
-  if (playerRole === "Red") {
-    document.getElementById("redPlayerName").textContent = `${username} (Red)`
-    document.getElementById("yellowPlayerName").textContent = "Yellow Player"
-  } else {
-    document.getElementById("redPlayerName").textContent = "Red Player"
-    document.getElementById("yellowPlayerName").textContent = `${username} (Yellow)`
-  }
-}
-
 // Create the game board
 function createBoard() {
-  console.log("Creating Connect4 board")
-  const boardElement = document.getElementById("board")
-  boardElement.innerHTML = ""
+  console.log("Creating game board")
+  const board = document.getElementById("board")
+  board.innerHTML = ""
 
-  for (let row = 0; row < 6; row++) {
-    for (let col = 0; col < 7; col++) {
-      const cell = document.createElement("div")
-      cell.classList.add("connect4-cell")
-      cell.dataset.row = row
-      cell.dataset.col = col
-      boardElement.appendChild(cell)
-    }
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement("div")
+    cell.classList.add("cell")
+    cell.dataset.index = i
+    board.appendChild(cell)
   }
 
-  console.log("Board created")
+  // Add click event listener to the board
+  board.addEventListener("click", handleCellClick)
+  console.log("Board created with click listeners")
 }
 
 // Connect to the WebSocket server
 function connectToServer() {
+  // Use the current hostname to make it work on any device
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
   const wsUrl = `${protocol}//${window.location.hostname}:8080/ws`
 
@@ -102,11 +81,11 @@ function connectToServer() {
 
   socket.onopen = () => {
     console.log("WebSocket connection established")
-    reconnectAttempts = 0
 
     // Initialize chat after socket connection
     initializeChat()
 
+    // Send a "join" message to reconnect to the game
     socket.send(
       JSON.stringify({
         type: "join",
@@ -115,32 +94,20 @@ function connectToServer() {
       }),
     )
 
+    // Initial status message will be updated when we receive game state
     const hostText = isHost ? " (Host)" : ""
-    document.getElementById("statusMessage").textContent = `Welcome ${username}! You are ${playerRole}${hostText}`
-
-    updateTurnIndicator()
+    document.getElementById("statusMessage").textContent =
+      `Welcome ${username}! You are Player ${playerRole}${hostText} - Connecting to game...`
   }
 
   socket.onclose = (event) => {
     console.log("WebSocket connection closed:", event)
+    document.getElementById("statusMessage").textContent = "Disconnected from server"
 
     // Destroy chat on disconnect
     if (gameChat) {
       gameChat.destroy()
       gameChat = null
-    }
-
-    if (reconnectAttempts < maxReconnectAttempts) {
-      reconnectAttempts++
-      document.getElementById("statusMessage").textContent =
-        `Connection lost. Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`
-
-      setTimeout(() => {
-        connectToServer()
-      }, 2000 * reconnectAttempts)
-    } else {
-      document.getElementById("statusMessage").textContent =
-        "Connection lost. Please refresh the page or return to menu."
     }
   }
 
@@ -168,7 +135,7 @@ function initializeChat() {
     // Add welcome message
     setTimeout(() => {
       if (gameChat) {
-        gameChat.addSystemMessage(`Welcome to Connect 4! Drop your pieces to connect four in a row.`)
+        gameChat.addSystemMessage(`Welcome to the game! You can chat with your opponent here.`)
       }
     }, 1000)
   }
@@ -185,11 +152,11 @@ function handleMessage(msg) {
     case "gameState":
       handleGameState(JSON.parse(msg.payload))
       break
-    case "connect4Move":
-      handleMove(JSON.parse(msg.payload))
+    case "move":
+      handleMove(JSON.parse(msg.payload), true)
       break
     case "restart":
-      resetGame()
+      resetGame(true)
       break
     case "gameEnd":
       handleGameEnd(JSON.parse(msg.payload))
@@ -207,7 +174,7 @@ function handleMessage(msg) {
       }, 3000)
       break
     case "error":
-      handleError(msg.payload)
+      document.getElementById("statusMessage").textContent = `Error: ${msg.payload}`
       break
     case "lobbyUpdate":
       handleLobbyUpdate(JSON.parse(msg.payload))
@@ -222,20 +189,6 @@ function handleLobbyUpdate(data) {
     if (otherPlayer) {
       gameChat.addSystemMessage(`${otherPlayer.username} has joined the game!`)
     }
-  }
-}
-
-// Handle error messages
-function handleError(errorMessage) {
-  console.error("Server error:", errorMessage)
-  document.getElementById("statusMessage").textContent = `Error: ${errorMessage}`
-
-  if (errorMessage.includes("Room") && errorMessage.includes("not found")) {
-    setTimeout(() => {
-      sessionStorage.removeItem("gameCode")
-      sessionStorage.removeItem("playerRole")
-      window.location.href = "lobby.html"
-    }, 3000)
   }
 }
 
@@ -258,21 +211,23 @@ function handleGameState(state) {
 
   if (state.board) {
     // Update the board with the current state
-    for (let row = 0; row < 6; row++) {
-      for (let col = 0; col < 7; col++) {
-        if (state.board[row][col]) {
-          board[row][col] = state.board[row][col]
-          const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`)
-          if (cell) {
-            cell.classList.add(state.board[row][col].toLowerCase())
-          }
+    for (let i = 0; i < 9; i++) {
+      if (state.board[i]) {
+        cells[i] = state.board[i]
+        const cell = document.querySelector(`.cell[data-index="${i}"]`)
+        if (cell) {
+          cell.textContent = state.board[i]
+          cell.classList.add(state.board[i].toLowerCase())
         }
       }
     }
 
+    // Update current player
     currentPlayer = state.currentTurn
     gameOver = !state.gameActive
 
+    // Update status message and turn indicator
+    updateStatusMessage()
     updateTurnIndicator()
   }
 }
@@ -284,12 +239,12 @@ function handleRoomJoined(data) {
   playerRole = data.role
   isHost = data.isHost
 
+  // Update session storage
   sessionStorage.setItem("gameCode", gameCode)
   sessionStorage.setItem("playerRole", playerRole)
   sessionStorage.setItem("isHost", isHost.toString())
 
-  updatePlayerNames()
-
+  // Request current game state
   socket.send(
     JSON.stringify({
       type: "getGameState",
@@ -298,28 +253,27 @@ function handleRoomJoined(data) {
   )
 }
 
-// Handle column click
-function handleColumnClick(event) {
-  if (!event.target.classList.contains("column-btn")) return
+// Handle cell click
+function handleCellClick(event) {
+  if (!event.target.classList.contains("cell")) return
 
-  const column = Number.parseInt(event.target.dataset.column)
-  console.log("Column clicked:", column)
+  const index = Number.parseInt(event.target.dataset.index)
+  console.log("Cell clicked:", index)
 
-  // Check if it's the player's turn
+  // Check if the move is valid
+  if (cells[index] || gameOver) {
+    console.log("Invalid move: Cell occupied or game over")
+    return
+  }
+
   if (currentPlayer !== playerRole) {
     console.log("Not your turn")
-    document.getElementById("statusMessage").textContent = "Not your turn!"
-    return
-  }
-
-  if (gameOver) {
-    console.log("Game is over")
-    return
-  }
-
-  // Check if column is full
-  if (board[0][column] !== null) {
-    console.log("Column is full")
+    const hostText = isHost ? " (You go first as host)" : " (Host goes first)"
+    document.getElementById("statusMessage").textContent = `Not your turn!${hostText}`
+    // Flash the status message to draw attention
+    const statusEl = document.getElementById("statusMessage")
+    statusEl.classList.add("flash")
+    setTimeout(() => statusEl.classList.remove("flash"), 1000)
     return
   }
 
@@ -328,64 +282,89 @@ function handleColumnClick(event) {
   // Send the move to the server
   socket.send(
     JSON.stringify({
-      type: "connect4Move",
+      type: "move",
       payload: JSON.stringify({
-        column: column,
+        index: index,
+        player: playerRole,
       }),
     }),
   )
 }
 
-// Handle a move from the server
-function handleMove(move) {
-  console.log("Handling move:", move)
+// Handle a move (local or from server)
+function handleMove(move, isRemote) {
+  console.log("Handling move:", move, "Remote:", isRemote)
 
-  const { row, column, player, username: moveUsername } = move
+  const index = move.index
+  const player = move.player
+  const moveUsername = move.username || "Unknown"
 
   // Update the board
-  board[row][column] = player
-  const cell = document.querySelector(`[data-row="${row}"][data-col="${column}"]`)
+  cells[index] = player
+  const cell = document.querySelector(`.cell[data-index="${index}"]`)
   if (cell) {
+    cell.textContent = player
     cell.classList.add(player.toLowerCase())
 
-    // Add animation
-    cell.style.animation = "dropPiece 0.5s ease-out"
-    setTimeout(() => {
-      cell.style.animation = ""
-    }, 500)
+    // Add animation for the new move
+    cell.classList.add("new-move")
+    setTimeout(() => cell.classList.remove("new-move"), 500)
   }
 
   // Switch turns
-  currentPlayer = currentPlayer === "Red" ? "Yellow" : "Red"
+  currentPlayer = currentPlayer === "X" ? "O" : "X"
+
+  // Update status message and turn indicator
+  updateStatusMessage()
   updateTurnIndicator()
 
   // Add move notification to chat
-  if (gameChat && moveUsername !== username) {
-    gameChat.addSystemMessage(`${moveUsername} dropped a ${player} piece in column ${column + 1}`)
+  if (gameChat && isRemote && moveUsername !== username) {
+    gameChat.addSystemMessage(`${moveUsername} played ${player} at position ${index + 1}`)
   }
 }
 
-// Update the turn indicator
-function updateTurnIndicator() {
-  const indicator = document.getElementById("turnIndicator")
-  const columnButtons = document.querySelectorAll(".column-btn")
+// Update the status message based on current game state
+function updateStatusMessage() {
+  const statusEl = document.getElementById("statusMessage")
 
   if (gameOver) {
-    indicator.textContent = "Game Over!"
-    columnButtons.forEach((btn) => (btn.disabled = true))
+    statusEl.textContent = "Game Over!"
     return
   }
 
+  const hostText = isHost ? " (Host)" : ""
+
   if (currentPlayer === playerRole) {
-    indicator.textContent = `Your turn (${playerRole})`
-    indicator.className = `turn-${playerRole.toLowerCase()}`
-    columnButtons.forEach((btn) => (btn.disabled = false))
+    statusEl.textContent = `${username}, it's your turn!${hostText}`
+    statusEl.classList.add("your-turn")
+    statusEl.classList.remove("waiting")
   } else {
-    const otherPlayer = currentPlayer === "Red" ? "Red" : "Yellow"
-    indicator.textContent = `${otherPlayer} Player's Turn`
-    indicator.className = `turn-${currentPlayer.toLowerCase()}`
-    columnButtons.forEach((btn) => (btn.disabled = true))
+    const waitingFor = currentPlayer === "X" ? "Host (X)" : "Player O"
+    statusEl.textContent = `Waiting for ${waitingFor}...`
+    statusEl.classList.add("waiting")
+    statusEl.classList.remove("your-turn")
   }
+}
+
+// Update the visual turn indicator
+function updateTurnIndicator() {
+  // Add visual indicator to show whose turn it is
+  document.querySelectorAll(".player-indicator").forEach((el) => {
+    el.classList.remove("active")
+  })
+
+  const activePlayer = currentPlayer === "X" ? "X" : "O"
+  const indicator = document.getElementById(`player${activePlayer}Indicator`)
+  if (indicator) {
+    indicator.classList.add("active")
+  }
+
+  // Update indicator text to show usernames and host status
+  document.getElementById("playerXIndicator").textContent =
+    `${username} (X)${isHost && playerRole === "X" ? " - Host" : ""}`
+  document.getElementById("playerOIndicator").textContent =
+    `Player O${!isHost && playerRole === "O" ? ` - ${username}` : ""}`
 }
 
 // Handle game end
@@ -394,8 +373,6 @@ function handleGameEnd(result) {
   gameOver = true
 
   const statusEl = document.getElementById("statusMessage")
-  const columnButtons = document.querySelectorAll(".column-btn")
-  columnButtons.forEach((btn) => (btn.disabled = true))
 
   if (result.winner === "draw") {
     statusEl.textContent = "It's a draw!"
@@ -403,10 +380,12 @@ function handleGameEnd(result) {
     scores.draw++
     document.getElementById("scoreDraw").textContent = scores.draw
 
+    // Add to chat
     if (gameChat) {
       gameChat.addSystemMessage("Game ended in a draw!")
     }
 
+    // Update stats
     updateStats("draw")
   } else {
     const winnerUsername = result.winnerUsername || "Unknown"
@@ -415,7 +394,7 @@ function handleGameEnd(result) {
       statusEl.classList.add("game-win")
 
       if (gameChat) {
-        gameChat.addSystemMessage(`🎉 You won with ${playerRole}!`)
+        gameChat.addSystemMessage(`🎉 You won the game!`)
       }
 
       updateStats("win")
@@ -424,7 +403,7 @@ function handleGameEnd(result) {
       statusEl.classList.add("game-lose")
 
       if (gameChat) {
-        gameChat.addSystemMessage(`${winnerUsername} won with ${result.winner}!`)
+        gameChat.addSystemMessage(`${winnerUsername} won the game!`)
       }
 
       updateStats("lose")
@@ -433,7 +412,10 @@ function handleGameEnd(result) {
     document.getElementById(`score${result.winner}`).textContent = scores[result.winner]
   }
 
-  document.getElementById("turnIndicator").textContent = "Game Over!"
+  // Remove turn indicators
+  document.querySelectorAll(".player-indicator").forEach((el) => {
+    el.classList.remove("active")
+  })
 }
 
 // Request a game restart
@@ -452,32 +434,29 @@ function requestRestart() {
 }
 
 // Reset the game
-function resetGame() {
+function resetGame(isRemote = false) {
   console.log("Resetting game")
-  board = Array(6)
-    .fill()
-    .map(() => Array(7).fill(null))
+  cells = Array(9).fill(null)
   gameOver = false
-  currentPlayer = "Red"
+  currentPlayer = "X" // Host (X) always starts first
 
   // Remove game end classes
   const statusEl = document.getElementById("statusMessage")
   statusEl.classList.remove("game-win", "game-lose", "game-draw")
 
   // Clear the board
-  const cells = document.querySelectorAll(".connect4-cell")
-  cells.forEach((cell) => {
-    cell.classList.remove("red", "yellow")
+  const cellElements = document.querySelectorAll(".cell")
+  cellElements.forEach((cell) => {
+    cell.textContent = ""
+    cell.classList.remove("x", "o", "new-move")
   })
 
-  // Enable column buttons
-  const columnButtons = document.querySelectorAll(".column-btn")
-  columnButtons.forEach((btn) => (btn.disabled = false))
-
+  // Update status message and turn indicator
+  updateStatusMessage()
   updateTurnIndicator()
 
   // Add restart notification to chat
-  if (gameChat) {
+  if (gameChat && isRemote) {
     gameChat.addSystemMessage("🔄 New game started!")
   }
 }
@@ -525,8 +504,3 @@ function updateStats(result) {
   saveUserStats(stats)
   console.log("Stats updated:", stats)
 }
-
-// Declare GameChat (assuming it's defined elsewhere or in a separate file)
-// This declaration prevents the "no-undef" linting error.
-// If GameChat is defined in a separate file, ensure it's properly imported/included.
-let GameChat

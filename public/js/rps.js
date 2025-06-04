@@ -1,3 +1,4 @@
+// Enhanced rps.js with chat integration
 // Global variables
 let socket
 let gameCode = ""
@@ -7,6 +8,7 @@ let isHost = false
 let username = ""
 let gameActive = false
 let myChoice = null
+let gameChat = null // Chat instance
 let reconnectAttempts = 0
 const maxReconnectAttempts = 5
 const scores = {
@@ -85,6 +87,9 @@ function connectToServer() {
     console.log("WebSocket connection established")
     reconnectAttempts = 0
 
+    // Initialize chat after socket connection
+    initializeChat()
+
     // Send a "join" message to reconnect to the game
     socket.send(
       JSON.stringify({
@@ -103,6 +108,12 @@ function connectToServer() {
 
   socket.onclose = (event) => {
     console.log("WebSocket connection closed:", event)
+
+    // Destroy chat on disconnect
+    if (gameChat) {
+      gameChat.destroy()
+      gameChat = null
+    }
 
     if (reconnectAttempts < maxReconnectAttempts) {
       reconnectAttempts++
@@ -134,6 +145,21 @@ function connectToServer() {
   }
 }
 
+// Initialize chat
+function initializeChat() {
+  if (socket && username && playerRole) {
+    // Assuming GameChat is defined elsewhere or imported
+    gameChat = new GameChat(socket, username, playerRole)
+
+    // Add welcome message
+    setTimeout(() => {
+      if (gameChat) {
+        gameChat.addSystemMessage(`Welcome to Rock Paper Scissors! Choose your weapon wisely.`)
+      }
+    }, 1000)
+  }
+}
+
 // Handle incoming WebSocket messages
 function handleMessage(msg) {
   console.log("Processing message:", msg)
@@ -153,6 +179,9 @@ function handleMessage(msg) {
       break
     case "hostLeft":
       document.getElementById("statusMessage").textContent = "Host left the game - returning to menu"
+      if (gameChat) {
+        gameChat.addSystemMessage("Host has left the game. Returning to menu...")
+      }
       setTimeout(() => {
         window.location.href = "index.html"
       }, 3000)
@@ -160,6 +189,19 @@ function handleMessage(msg) {
     case "error":
       handleError(msg.payload)
       break
+    case "lobbyUpdate":
+      handleLobbyUpdate(JSON.parse(msg.payload))
+      break
+  }
+}
+
+// Handle lobby update (when second player joins)
+function handleLobbyUpdate(data) {
+  if (data.players && data.players.length === 2 && gameChat) {
+    const otherPlayer = data.players.find((p) => p.username !== username)
+    if (otherPlayer) {
+      gameChat.addSystemMessage(`${otherPlayer.username} has joined the battle!`)
+    }
   }
 }
 
@@ -184,6 +226,11 @@ function handlePlayerLeft(data) {
   } else {
     document.getElementById("statusMessage").textContent = `${data.username} left the game`
   }
+
+  if (gameChat) {
+    gameChat.addSystemMessage(`${data.username} has left the game`)
+  }
+
   gameActive = false
 }
 
@@ -242,6 +289,11 @@ function handleChoiceClick(event) {
   // Update status
   document.getElementById("statusMessage").textContent = `You chose ${choice}!`
   document.getElementById("waitingMessage").style.display = "block"
+
+  // Add choice notification to chat
+  if (gameChat) {
+    gameChat.addSystemMessage(`You chose ${choice}! Waiting for opponent...`)
+  }
 }
 
 // Handle RPS result
@@ -270,11 +322,22 @@ function handleRPSResult(result) {
     resultText.className = "result-text draw"
     scores.draw++
     document.getElementById("scoreDraw").textContent = scores.draw
+
+    if (gameChat) {
+      gameChat.addSystemMessage(`Round ${currentRound}: Draw! Both chose ${result.p1}`)
+    }
   } else if (result.winner === playerRole) {
     resultText.textContent = "You win this round!"
     resultText.className = "result-text win"
     scores[playerRole]++
     document.getElementById(`score${playerRole}`).textContent = scores[playerRole]
+
+    if (gameChat) {
+      gameChat.addSystemMessage(
+        `🎉 Round ${currentRound}: You won! ${myChoice} beats ${result.winner === "P1" ? result.p2 : result.p1}`,
+      )
+    }
+
     updateStats("win")
   } else {
     resultText.textContent = "You lose this round!"
@@ -282,6 +345,12 @@ function handleRPSResult(result) {
     const opponentRole = playerRole === "P1" ? "P2" : "P1"
     scores[opponentRole]++
     document.getElementById(`score${opponentRole}`).textContent = scores[opponentRole]
+
+    if (gameChat) {
+      const opponentChoice = result.winner === "P1" ? result.p1 : result.p2
+      gameChat.addSystemMessage(`Round ${currentRound}: You lost. ${opponentChoice} beats ${myChoice}`)
+    }
+
     updateStats("lose")
   }
 
@@ -313,10 +382,18 @@ function startNewRound() {
 
   // Update status
   document.getElementById("statusMessage").textContent = "Make your choice for the next round!"
+
+  // Add new round notification to chat
+  if (gameChat) {
+    gameChat.addSystemMessage(`🔄 Round ${currentRound} starting! Choose your weapon!`)
+  }
 }
 
 // Go back to the lobby
 function goBack() {
+  if (gameChat) {
+    gameChat.destroy()
+  }
   window.location.href = "lobby.html"
 }
 

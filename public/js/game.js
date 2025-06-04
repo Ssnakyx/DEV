@@ -1,3 +1,4 @@
+// Enhanced game.js with chat integration
 // Global variables
 let socket
 let gameCode = ""
@@ -7,6 +8,7 @@ let cells = Array(9).fill(null)
 let gameOver = false
 let isHost = false
 let username = ""
+let gameChat = null // Chat instance
 const opponentUsername = ""
 const scores = {
   X: 0,
@@ -80,6 +82,9 @@ function connectToServer() {
   socket.onopen = () => {
     console.log("WebSocket connection established")
 
+    // Initialize chat after socket connection
+    initializeChat()
+
     // Send a "join" message to reconnect to the game
     socket.send(
       JSON.stringify({
@@ -98,6 +103,12 @@ function connectToServer() {
   socket.onclose = (event) => {
     console.log("WebSocket connection closed:", event)
     document.getElementById("statusMessage").textContent = "Disconnected from server"
+
+    // Destroy chat on disconnect
+    if (gameChat) {
+      gameChat.destroy()
+      gameChat = null
+    }
   }
 
   socket.onerror = (error) => {
@@ -113,6 +124,20 @@ function connectToServer() {
     } catch (error) {
       console.error("Error parsing message:", error)
     }
+  }
+}
+
+// Initialize chat
+function initializeChat() {
+  if (socket && username && playerRole) {
+    gameChat = new GameChat(socket, username, playerRole)
+
+    // Add welcome message
+    setTimeout(() => {
+      if (gameChat) {
+        gameChat.addSystemMessage(`Welcome to Tic Tac Toe! Chat with your opponent here.`)
+      }
+    }, 1000)
   }
 }
 
@@ -141,6 +166,9 @@ function handleMessage(msg) {
       break
     case "hostLeft":
       document.getElementById("statusMessage").textContent = "Host left the game - returning to menu"
+      if (gameChat) {
+        gameChat.addSystemMessage("Host has left the game. Returning to menu...")
+      }
       setTimeout(() => {
         window.location.href = "index.html"
       }, 3000)
@@ -148,6 +176,19 @@ function handleMessage(msg) {
     case "error":
       document.getElementById("statusMessage").textContent = `Error: ${msg.payload}`
       break
+    case "lobbyUpdate":
+      handleLobbyUpdate(JSON.parse(msg.payload))
+      break
+  }
+}
+
+// Handle lobby update (when second player joins)
+function handleLobbyUpdate(data) {
+  if (data.players && data.players.length === 2 && gameChat) {
+    const otherPlayer = data.players.find((p) => p.username !== username)
+    if (otherPlayer) {
+      gameChat.addSystemMessage(`${otherPlayer.username} has joined the game!`)
+    }
   }
 }
 
@@ -157,6 +198,10 @@ function handlePlayerLeft(data) {
     document.getElementById("statusMessage").textContent = `Host ${data.username} left the game`
   } else {
     document.getElementById("statusMessage").textContent = `${data.username} left the game`
+  }
+
+  if (gameChat) {
+    gameChat.addSystemMessage(`${data.username} has left the game`)
   }
 }
 
@@ -272,6 +317,11 @@ function handleMove(move, isRemote) {
   // Update status message and turn indicator
   updateStatusMessage()
   updateTurnIndicator()
+
+  // Add move notification to chat
+  if (gameChat && isRemote && moveUsername !== username) {
+    gameChat.addSystemMessage(`${moveUsername} played ${player} at position ${index + 1}`)
+  }
 }
 
 // Update the status message based on current game state
@@ -330,6 +380,11 @@ function handleGameEnd(result) {
     scores.draw++
     document.getElementById("scoreDraw").textContent = scores.draw
 
+    // Add to chat
+    if (gameChat) {
+      gameChat.addSystemMessage("Game ended in a draw!")
+    }
+
     // Update stats
     updateStats("draw")
   } else {
@@ -337,10 +392,20 @@ function handleGameEnd(result) {
     if (result.winner === playerRole) {
       statusEl.textContent = `You win, ${username}!`
       statusEl.classList.add("game-win")
+
+      if (gameChat) {
+        gameChat.addSystemMessage(`🎉 You won the game!`)
+      }
+
       updateStats("win")
     } else {
       statusEl.textContent = `${winnerUsername} wins!`
       statusEl.classList.add("game-lose")
+
+      if (gameChat) {
+        gameChat.addSystemMessage(`${winnerUsername} won the game!`)
+      }
+
       updateStats("lose")
     }
     scores[result.winner]++
@@ -389,10 +454,18 @@ function resetGame(isRemote = false) {
   // Update status message and turn indicator
   updateStatusMessage()
   updateTurnIndicator()
+
+  // Add restart notification to chat
+  if (gameChat && isRemote) {
+    gameChat.addSystemMessage("🔄 New game started!")
+  }
 }
 
 // Go back to the lobby
 function goBack() {
+  if (gameChat) {
+    gameChat.destroy()
+  }
   window.location.href = "lobby.html"
 }
 
