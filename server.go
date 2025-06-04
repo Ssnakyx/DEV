@@ -20,7 +20,6 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-// Game types
 const (
 	GameTypeTicTacToe   = "tictactoe"
 	GameTypeRPS         = "rps"
@@ -30,14 +29,12 @@ const (
 	GameTypeDots        = "dots"
 )
 
-// Player structure
 type Player struct {
 	Conn     *websocket.Conn
 	Username string
 	Role     string
 }
 
-// Game room structure
 type GameRoom struct {
 	Code      string
 	GameType  string
@@ -48,7 +45,6 @@ type GameRoom struct {
 	mu        sync.Mutex
 }
 
-// Message structure
 type Message struct {
 	Type     string `json:"type"`
 	Payload  string `json:"payload"`
@@ -57,39 +53,34 @@ type Message struct {
 	Username string `json:"username,omitempty"`
 }
 
-// TicTacToe game state
 type TicTacToeState struct {
 	Board       [9]string
 	CurrentTurn string
 	GameActive  bool
 }
 
-// RPS game state
 type RPSState struct {
 	Choices map[string]string
 	Round   int
 }
 
-// Connect4 game state
 type Connect4State struct {
-	Board       [6][7]string // 6 rows, 7 columns
+	Board       [6][7]string
 	CurrentTurn string
 	GameActive  bool
 }
 
-// GuessNumber game state
 type GuessNumberState struct {
 	TargetNumber int
-	Guesses      map[string][]int // player -> list of guesses
+	Guesses      map[string][]int
 	MaxGuesses   int
 	GameActive   bool
 	Winner       string
 }
 
-// WordGuess game state
 type WordGuessState struct {
 	Word            string
-	GuessedWord     []string // current state of word with guesses
+	GuessedWord     []string
 	GuessedLetters  []string
 	WrongGuesses    int
 	MaxWrongGuesses int
@@ -97,11 +88,10 @@ type WordGuessState struct {
 	CurrentTurn     string
 }
 
-// Dots game state
 type DotsState struct {
-	Grid        [4][4]bool   // dots connections
-	Lines       []Line       // drawn lines
-	Boxes       [3][3]string // who completed each box
+	Grid        [4][4]bool
+	Lines       []Line
+	Boxes       [3][3]string
 	CurrentTurn string
 	GameActive  bool
 	Scores      map[string]int
@@ -118,7 +108,6 @@ var (
 	broadcast = make(chan Message)
 )
 
-// Word list for word guessing game
 var wordList = []string{
 	"JAVASCRIPT", "COMPUTER", "PROGRAMMING", "WEBSITE", "INTERNET", "KEYBOARD",
 	"MONITOR", "SOFTWARE", "HARDWARE", "DATABASE", "NETWORK", "SECURITY",
@@ -264,7 +253,6 @@ func handleCreateRoom(ws *websocket.Conn, msg Message) {
 		CreatedAt: time.Now(),
 	}
 
-	// Initialize game state based on game type
 	switch gameType {
 	case GameTypeTicTacToe:
 		room.GameState = TicTacToeState{
@@ -367,7 +355,6 @@ func handleJoinRoom(ws *websocket.Conn, msg Message) {
 	room.mu.Lock()
 	defer room.mu.Unlock()
 
-	// Check for reconnection
 	for conn, player := range room.Players {
 		if player.Username == username {
 			log.Printf("Player %s reconnecting to room %s as %s", player.Username, code, player.Role)
@@ -399,7 +386,6 @@ func handleJoinRoom(ws *websocket.Conn, msg Message) {
 		return
 	}
 
-	// Assign role based on game type
 	var role string
 	switch room.GameType {
 	case GameTypeTicTacToe:
@@ -563,9 +549,6 @@ func startGame(room *GameRoom) {
 	}
 }
 
-// Game-specific handlers would continue here...
-// I'll include the key ones for the new games
-
 func handleConnect4Move(ws *websocket.Conn, msg Message) {
 	roomCode := findPlayerRoom(ws)
 	if roomCode == "" {
@@ -598,7 +581,6 @@ func handleConnect4Move(ws *websocket.Conn, msg Message) {
 		return
 	}
 
-	// Find the lowest available row in the column
 	row := -1
 	for r := 5; r >= 0; r-- {
 		if state.Board[r][move.Column] == "" {
@@ -608,13 +590,11 @@ func handleConnect4Move(ws *websocket.Conn, msg Message) {
 	}
 
 	if row == -1 {
-		return // Column is full
+		return
 	}
 
-	// Make the move
 	state.Board[row][move.Column] = player.Role
 
-	// Switch turns
 	if state.CurrentTurn == "Red" {
 		state.CurrentTurn = "Yellow"
 	} else {
@@ -623,7 +603,6 @@ func handleConnect4Move(ws *websocket.Conn, msg Message) {
 
 	room.GameState = state
 
-	// Broadcast the move
 	moveMsg := Message{
 		Type: "connect4Move",
 		Payload: fmt.Sprintf(`{"row":%d,"column":%d,"player":"%s","username":"%s"}`,
@@ -634,7 +613,6 @@ func handleConnect4Move(ws *websocket.Conn, msg Message) {
 		client.WriteJSON(moveMsg)
 	}
 
-	// Check for win
 	checkConnect4GameEnd(room, row, move.Column)
 }
 
@@ -642,20 +620,17 @@ func checkConnect4GameEnd(room *GameRoom, row, col int) {
 	state := room.GameState.(Connect4State)
 	player := state.Board[row][col]
 
-	// Check all directions for 4 in a row
 	directions := [][2]int{{0, 1}, {1, 0}, {1, 1}, {1, -1}}
 
 	for _, dir := range directions {
 		count := 1
 
-		// Check positive direction
 		r, c := row+dir[0], col+dir[1]
 		for r >= 0 && r < 6 && c >= 0 && c < 7 && state.Board[r][c] == player {
 			count++
 			r, c = r+dir[0], c+dir[1]
 		}
 
-		// Check negative direction
 		r, c = row-dir[0], col-dir[1]
 		for r >= 0 && r < 6 && c >= 0 && c < 7 && state.Board[r][c] == player {
 			count++
@@ -663,7 +638,6 @@ func checkConnect4GameEnd(room *GameRoom, row, col int) {
 		}
 
 		if count >= 4 {
-			// Winner found
 			state.GameActive = false
 			room.GameState = state
 
@@ -685,7 +659,6 @@ func checkConnect4GameEnd(room *GameRoom, row, col int) {
 		}
 	}
 
-	// Check for draw (board full)
 	full := true
 	for c := 0; c < 7; c++ {
 		if state.Board[0][c] == "" {
@@ -739,7 +712,6 @@ func handleNumberGuess(ws *websocket.Conn, msg Message) {
 		return
 	}
 
-	// Add guess to player's list
 	if state.Guesses[player.Role] == nil {
 		state.Guesses[player.Role] = []int{}
 	}
@@ -756,22 +728,19 @@ func handleNumberGuess(ws *websocket.Conn, msg Message) {
 		result = "lower"
 	}
 
-	// Check if max guesses reached
 	if len(state.Guesses[player.Role]) >= state.MaxGuesses && state.GameActive {
 		state.GameActive = false
-		// Check if other player won
 		otherRole := "P1"
 		if player.Role == "P1" {
 			otherRole = "P2"
 		}
 		if state.Winner == "" {
-			state.Winner = otherRole // Other player wins by default
+			state.Winner = otherRole
 		}
 	}
 
 	room.GameState = state
 
-	// Send result to all players
 	resultMsg := Message{
 		Type: "numberGuessResult",
 		Payload: fmt.Sprintf(`{"player":"%s","username":"%s","guess":%d,"result":"%s","target":%d,"gameActive":%t,"winner":"%s"}`,
@@ -817,7 +786,6 @@ func handleLetterGuess(ws *websocket.Conn, msg Message) {
 
 	letter := guess.Letter
 
-	// Check if letter already guessed
 	for _, l := range state.GuessedLetters {
 		if l == letter {
 			return
@@ -826,7 +794,6 @@ func handleLetterGuess(ws *websocket.Conn, msg Message) {
 
 	state.GuessedLetters = append(state.GuessedLetters, letter)
 
-	// Check if letter is in word
 	found := false
 	for i, char := range state.Word {
 		if string(char) == letter {
@@ -839,7 +806,6 @@ func handleLetterGuess(ws *websocket.Conn, msg Message) {
 		state.WrongGuesses++
 	}
 
-	// Check win condition
 	wordComplete := true
 	for _, char := range state.GuessedWord {
 		if char == "_" {
@@ -853,7 +819,7 @@ func handleLetterGuess(ws *websocket.Conn, msg Message) {
 	} else if state.WrongGuesses >= state.MaxWrongGuesses {
 		state.GameActive = false
 	} else {
-		// Switch turns
+
 		if state.CurrentTurn == "P1" {
 			state.CurrentTurn = "P2"
 		} else {
@@ -863,7 +829,6 @@ func handleLetterGuess(ws *websocket.Conn, msg Message) {
 
 	room.GameState = state
 
-	// Send update to all players
 	guessedWordJSON, _ := json.Marshal(state.GuessedWord)
 	guessedLettersJSON, _ := json.Marshal(state.GuessedLetters)
 
@@ -877,9 +842,6 @@ func handleLetterGuess(ws *websocket.Conn, msg Message) {
 		client.WriteJSON(resultMsg)
 	}
 }
-
-// Continue with other game handlers and existing functions...
-// (keeping the rest of the existing code for brevity)
 
 func handleGameMove(ws *websocket.Conn, msg Message) {
 	roomCode := findPlayerRoom(ws)
@@ -1025,7 +987,6 @@ func handleGameRestart(ws *websocket.Conn, msg Message) {
 		return
 	}
 
-	// Reset game state based on game type
 	switch room.GameType {
 	case GameTypeTicTacToe:
 		room.GameState = TicTacToeState{
@@ -1152,8 +1113,6 @@ func handleRPSChoice(ws *websocket.Conn, msg Message) {
 }
 
 func handleDotsMove(ws *websocket.Conn, msg Message) {
-	// Implementation for dots and boxes game
-	// This would handle line drawing between dots
 }
 
 func findPlayerRoom(ws *websocket.Conn) string {
