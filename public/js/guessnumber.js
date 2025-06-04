@@ -1,4 +1,3 @@
-// Global variables
 let socket
 let gameCode = ""
 let playerRole = ""
@@ -16,30 +15,22 @@ const scores = {
   P1: 0,
   P2: 0,
 }
-
-// Hangman drawings
 const hangmanStages = [
-  "", // 0 wrong
-  "  +---+\n      |\n      |\n      |\n      |\n      |\n=========", // 1 wrong
-  "  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========", // 2 wrong
-  "  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========", // 3 wrong
-  "  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========", // 4 wrong
-  "  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========", // 5 wrong
-  "  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========", // 6 wrong (game over)
+  "",
+  "  +---+\n      |\n      |\n      |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========",
+  "  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========",
 ]
-
-// Initialize the page
 document.addEventListener("DOMContentLoaded", () => {
   console.log("Word Guessing game page loaded")
-
-  // Get data from session storage
   gameCode = sessionStorage.getItem("gameCode")
   playerRole = sessionStorage.getItem("playerRole")
   isHost = sessionStorage.getItem("isHost") === "true"
   username = sessionStorage.getItem("username") || ""
-
   console.log("Session data:", { gameCode, playerRole, isHost, username })
-
   if (!gameCode || !playerRole || !username) {
     console.error("Missing game session data")
     document.getElementById("statusMessage").textContent = "Error: Game session not found"
@@ -48,38 +39,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 3000)
     return
   }
-
-  // Update player names
   updatePlayerNames()
-
-  // Connect to WebSocket server
   connectToServer()
-
-  // Set up event listeners
   document.getElementById("submitLetter").addEventListener("click", submitLetter)
   document.getElementById("restartGame").addEventListener("click", requestRestart)
-
-  // Allow Enter key to submit letter
   document.getElementById("letterInput").addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
       submitLetter()
     }
   })
-
-  // Auto-uppercase input
   document.getElementById("letterInput").addEventListener("input", (e) => {
     e.target.value = e.target.value.toUpperCase()
   })
-
-  // Update restart button text based on host status
   if (isHost) {
     document.getElementById("restartGame").textContent = "New Game"
   } else {
     document.getElementById("restartGame").textContent = "Ask Host to Restart"
   }
 })
-
-// Update player names in the UI
 function updatePlayerNames() {
   if (playerRole === "P1") {
     document.getElementById("player1Name").textContent = `${username} (P1)`
@@ -89,20 +66,14 @@ function updatePlayerNames() {
     document.getElementById("player2Name").textContent = `${username} (P2)`
   }
 }
-
-// Connect to the WebSocket server
 function connectToServer() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
   const wsUrl = `${protocol}//${window.location.hostname}:8080/ws`
-
   console.log("Connecting to WebSocket server:", wsUrl)
-
   socket = new WebSocket(wsUrl)
-
   socket.onopen = () => {
     console.log("WebSocket connection established")
     reconnectAttempts = 0
-
     socket.send(
       JSON.stringify({
         type: "join",
@@ -110,22 +81,17 @@ function connectToServer() {
         username: username,
       }),
     )
-
     const hostText = isHost ? " (Host)" : ""
     document.getElementById("statusMessage").textContent = `Welcome ${username}! You are ${playerRole}${hostText}`
-
     gameActive = true
     updateTurnInfo()
   }
-
   socket.onclose = (event) => {
     console.log("WebSocket connection closed:", event)
-
     if (reconnectAttempts < maxReconnectAttempts) {
       reconnectAttempts++
       document.getElementById("statusMessage").textContent =
         `Connection lost. Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`
-
       setTimeout(() => {
         connectToServer()
       }, 2000 * reconnectAttempts)
@@ -134,12 +100,10 @@ function connectToServer() {
         "Connection lost. Please refresh the page or return to menu."
     }
   }
-
   socket.onerror = (error) => {
     console.error("WebSocket error:", error)
     document.getElementById("statusMessage").textContent = "Error connecting to server"
   }
-
   socket.onmessage = (event) => {
     console.log("Message received:", event.data)
     try {
@@ -150,11 +114,8 @@ function connectToServer() {
     }
   }
 }
-
-// Handle incoming WebSocket messages
 function handleMessage(msg) {
   console.log("Processing message:", msg)
-
   switch (msg.type) {
     case "roomJoined":
       handleRoomJoined(JSON.parse(msg.payload))
@@ -182,12 +143,9 @@ function handleMessage(msg) {
       break
   }
 }
-
-// Handle error messages
 function handleError(errorMessage) {
   console.error("Server error:", errorMessage)
   document.getElementById("statusMessage").textContent = `Error: ${errorMessage}`
-
   if (errorMessage.includes("Room") && errorMessage.includes("not found")) {
     setTimeout(() => {
       sessionStorage.removeItem("gameCode")
@@ -196,8 +154,6 @@ function handleError(errorMessage) {
     }, 3000)
   }
 }
-
-// Handle player left message
 function handlePlayerLeft(data) {
   if (data.isHost) {
     document.getElementById("statusMessage").textContent = `Host ${data.username} left the game`
@@ -206,48 +162,36 @@ function handlePlayerLeft(data) {
   }
   gameActive = false
 }
-
-// Handle game state message
 function handleGameState(state) {
   console.log("Received game state:", state)
-
   if (state.guessedWord) {
     currentWord = state.guessedWord
     updateWordDisplay()
   }
-
   if (state.guessedLetters) {
     guessedLetters = state.guessedLetters
     updateLettersGrid()
   }
-
   if (state.wrongGuesses !== undefined) {
     wrongGuesses = state.wrongGuesses
     updateWrongCount()
     updateHangman()
   }
-
   if (state.currentTurn) {
     currentTurn = state.currentTurn
     updateTurnInfo()
   }
-
   gameActive = state.gameActive
 }
-
-// Handle room joined message
 function handleRoomJoined(data) {
   console.log("Room joined:", data)
   gameCode = data.code
   playerRole = data.role
   isHost = data.isHost
-
   sessionStorage.setItem("gameCode", gameCode)
   sessionStorage.setItem("playerRole", playerRole)
   sessionStorage.setItem("isHost", isHost.toString())
-
   updatePlayerNames()
-
   socket.send(
     JSON.stringify({
       type: "getGameState",
@@ -255,58 +199,43 @@ function handleRoomJoined(data) {
     }),
   )
 }
-
-// Submit a letter guess
 function submitLetter() {
   if (!gameActive) {
     alert("Game is not active!")
     return
   }
-
   if (currentTurn !== playerRole) {
     alert("It's not your turn!")
     return
   }
-
   const input = document.getElementById("letterInput")
   const letter = input.value.trim().toUpperCase()
-
   if (!letter || letter.length !== 1) {
     alert("Please enter a single letter!")
     input.focus()
     return
   }
-
   if (!/^[A-Z]$/.test(letter)) {
     alert("Please enter a valid letter!")
     input.focus()
     return
   }
-
   if (guessedLetters.includes(letter)) {
     alert("You already guessed that letter!")
     input.focus()
     return
   }
-
   console.log("Submitting letter:", letter)
-
-  // Send letter to server
   socket.send(
     JSON.stringify({
       type: "letterGuess",
       payload: JSON.stringify({ letter: letter }),
     }),
   )
-
-  // Clear input
   input.value = ""
 }
-
-// Handle letter guess result
 function handleLetterResult(result) {
   console.log("Letter result:", result)
-
   const {
     letter,
     found,
@@ -317,44 +246,31 @@ function handleLetterResult(result) {
     currentTurn: newTurn,
     word,
   } = result
-
-  // Update state
   currentWord = guessedWord
   guessedLetters = newGuessedLetters
   wrongGuesses = newWrongGuesses
   currentTurn = newTurn
   gameActive = stillActive
-
-  // Update displays
   updateWordDisplay()
   updateLettersGrid()
   updateWrongCount()
   updateHangman()
   updateTurnInfo()
-
-  // Update status message
   const statusEl = document.getElementById("statusMessage")
-
   if (!stillActive) {
-    // Game ended
     const wordComplete = !currentWord.includes("_")
-
     if (wordComplete) {
       statusEl.textContent = `🎉 Word guessed! The word was "${word}"!`
       statusEl.classList.add("game-win")
-      // Winner is determined by who completed the word
       updateStats("win")
     } else {
       statusEl.textContent = `💀 Game over! The word was "${word}"`
       statusEl.classList.add("game-lose")
       updateStats("lose")
     }
-
-    // Update total games
     const totalGames = scores.P1 + scores.P2 + 1
     document.getElementById("totalGames").textContent = totalGames
   } else {
-    // Game continues
     if (found) {
       statusEl.textContent = `Good guess! "${letter}" is in the word.`
     } else {
@@ -362,55 +278,39 @@ function handleLetterResult(result) {
     }
   }
 }
-
-// Update word display
 function updateWordDisplay() {
   const wordEl = document.getElementById("wordDisplay")
   wordEl.textContent = currentWord.join(" ")
 }
-
-// Update letters grid
 function updateLettersGrid() {
   const gridEl = document.getElementById("lettersGrid")
   gridEl.innerHTML = ""
-
   guessedLetters.forEach((letter) => {
     const tile = document.createElement("div")
     tile.classList.add("letter-tile")
     tile.textContent = letter
-
-    // Check if letter is in the current word
     if (currentWord.includes(letter)) {
       tile.classList.add("correct")
     } else {
       tile.classList.add("wrong")
     }
-
     gridEl.appendChild(tile)
   })
 }
-
-// Update wrong count display
 function updateWrongCount() {
   const countEl = document.getElementById("wrongCount")
   countEl.textContent = `Wrong guesses: ${wrongGuesses}/${maxWrongGuesses}`
 }
-
-// Update hangman display
 function updateHangman() {
   const hangmanEl = document.getElementById("hangmanDisplay")
   hangmanEl.textContent = hangmanStages[wrongGuesses] || ""
 }
-
-// Update turn info
 function updateTurnInfo() {
   const turnEl = document.getElementById("turnInfo")
-
   if (!gameActive) {
     turnEl.textContent = "Game Over"
     return
   }
-
   if (currentTurn === playerRole) {
     turnEl.textContent = "Your turn!"
     turnEl.style.color = "#00c853"
@@ -419,14 +319,11 @@ function updateTurnInfo() {
     turnEl.style.color = "#ff9100"
   }
 }
-
-// Request a game restart
 function requestRestart() {
   if (!isHost) {
     alert("Only the host can restart the game!")
     return
   }
-
   socket.send(
     JSON.stringify({
       type: "restart",
@@ -434,8 +331,6 @@ function requestRestart() {
     }),
   )
 }
-
-// Reset the game
 function resetGame() {
   console.log("Resetting game")
   currentWord = []
@@ -443,29 +338,19 @@ function resetGame() {
   wrongGuesses = 0
   currentTurn = "P1"
   gameActive = true
-
-  // Remove game end classes
   const statusEl = document.getElementById("statusMessage")
   statusEl.classList.remove("game-win", "game-lose", "game-draw")
   statusEl.textContent = "New game started!"
-
-  // Clear input
   document.getElementById("letterInput").value = ""
-
-  // Reset displays
   updateWordDisplay()
   updateLettersGrid()
   updateWrongCount()
   updateHangman()
   updateTurnInfo()
 }
-
-// Go back to the lobby
 function goBack() {
   window.location.href = "lobby.html"
 }
-
-// Get user stats from localStorage
 function getUserStats() {
   const stats = localStorage.getItem("miniGamesStats")
   if (stats) {
@@ -478,17 +363,12 @@ function getUserStats() {
     gamesDraw: 0,
   }
 }
-
-// Save user stats to localStorage
 function saveUserStats(stats) {
   localStorage.setItem("miniGamesStats", JSON.stringify(stats))
 }
-
-// Update stats after a game
 function updateStats(result) {
   const stats = getUserStats()
   stats.gamesPlayed++
-
   if (result === "win") {
     stats.gamesWon++
   } else if (result === "lose") {
@@ -496,7 +376,6 @@ function updateStats(result) {
   } else if (result === "draw") {
     stats.gamesDraw++
   }
-
   saveUserStats(stats)
   console.log("Stats updated:", stats)
 }
