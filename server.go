@@ -138,7 +138,7 @@ func main() {
 	go roomCleanupRoutine()
 
 	fmt.Println("Server running on http://localhost:8080")
-	log.Println("Access via local network at http://192.168.1.9:8080")
+	log.Println("Access via local network at http://(Your IP):8080")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Fatal("Error starting server:", err)
